@@ -10,9 +10,8 @@ class DatabaseHandler:
     DEFAULT_DB_FILE_LOCATION = ""
     db_file_location: str
 
-    def __init__(self: Self, guild_id: int, channel_id: str) -> None:
+    def __init__(self: Self, guild_id: int) -> None:
         self.guild_id = guild_id
-        self.channel_id = channel_id
 
     @classmethod
     def initial_setup(cls, db_file_location: str):
@@ -39,14 +38,51 @@ class DatabaseHandler:
             )
         """)
 
+        db.execute("""
+            CREATE TABLE IF NOT EXISTS guildSettings (
+                guild_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                krillion_channel_id INTEGER
+            )
+        """)
+
         db.commit()
 
+    async def setup_guild(self: Self) -> None:
+        async with aiosqlite.connect(self.db_file_location) as db:
+            await db.execute("INSERT INTO guildSettings (guild_id, krillion_channel_id) VALUES (?, ?)", (self.guild_id, None))
+            await db.commit()
+
+    async def remove_guild(self: Self) -> None:
+        async with aiosqlite.connect(self.db_file_location) as db:
+            await db.execute("DELETE FROM guildSettings WHERE guild_id = ?", (self.guild_id,))
+            await db.commit()
+            await self.wipe()
+
+    async def set_krillion_channel(self: Self, channel_id: int) -> None:
+        async with aiosqlite.connect(self.db_file_location) as db:
+            await db.execute("INSERT OR REPLACE INTO guildSettings (guild_id, krillion_channel_id) VALUES (?, ?)", (self.guild_id, channel_id))
+            await db.commit()
+
+    async def get_krillion_channel(self: Self) -> Optional[int]:
+        async with aiosqlite.connect(self.db_file_location) as db:
+            cursor = await db.execute("SELECT krillion_channel_id FROM guildSettings WHERE guild_id = ?", (self.guild_id,))
+            result = await cursor.fetchone()
+
+        if result is not None:
+            if result[0] is None:
+                return None
+            return int(result[0])
+
     async def wipe(self: Self):
+        async with aiosqlite.connect(self.db_file_location) as db:
+            await db.execute("DELETE FROM krillionResults WHERE guild_id = ?", (self.guild_id,))
+            await db.commit()
+
+    async def wipe_all(self: Self):
         async with aiosqlite.connect(self.db_file_location) as db:
             await db.execute("DELETE FROM krillionResults;")
             await db.commit()
 
-    
     async def check_user_submitted_today(self: Self, author_id: int):
         async with aiosqlite.connect(self.db_file_location) as db:
             cursor = await db.execute(
@@ -64,7 +100,6 @@ class DatabaseHandler:
             )
             result = await cursor.fetchone()
         return result is not None and bool(result[0])
-
 
     async def log_result(self: Self, author_id: int, author_name: str, result: KrillionResult):
         async with aiosqlite.connect(self.db_file_location) as db:

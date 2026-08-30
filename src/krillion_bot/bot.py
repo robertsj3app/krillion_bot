@@ -36,10 +36,6 @@ async def on_message(message: Message):
     # Handle EVERY incoming message
     # --------------------------------
 
-    print(
-        f"{message.author}: {message.content}"
-    )
-
     # Eventually:
     # await database.log_message(message)
 
@@ -52,10 +48,22 @@ async def on_message(message: Message):
 
     await bot.process_commands(message)
 
+@bot.event
+async def on_guild_join(guild: discord.Guild):
+    # Establish a baseline profile entry right away
+    await DatabaseHandler(guild.id).setup_guild()
 
-# @bot.command()
-# async def hello(ctx):
-#     await ctx.send("Hello!")
+@bot.event
+async def on_guild_remove(guild: discord.Guild):
+    # Wipe server footprint if it removes the bot 
+    await DatabaseHandler(guild.id).remove_guild()
+
+@bot.command()
+@commands.has_permissions(manage_channels=True) # Restrict this command to admins/mods
+async def set_krillion_channel(ctx: commands.Context, channel: discord.TextChannel):
+    if ctx.guild:
+        await DatabaseHandler(ctx.guild.id).set_krillion_channel(channel.id)
+        await ctx.send(f"🎯 Target channel successfully set to {channel.mention}")
 
 
 # @bot.command()

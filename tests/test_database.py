@@ -2,6 +2,7 @@ import pytest
 
 from krillion_bot.services.database import DatabaseHandler
 from krillion_bot.services.parser import KrillionResult
+import aiosqlite
 
 
 @pytest.fixture
@@ -11,7 +12,7 @@ def db(tmp_path):
 
     DatabaseHandler.initial_setup(str(db_path))
 
-    return DatabaseHandler(123, "#krillion")
+    return DatabaseHandler(123)
 
 
 def make_result(score: int, answers: str, game_number: int = 46) -> KrillionResult:
@@ -332,7 +333,7 @@ async def test_aggregate_stats_for_unknown_user_returns_null_values(db: Database
 
 
 @pytest.mark.asyncio
-async def test_wipe_removes_all_results(db: DatabaseHandler):
+async def test_wipe_all_removes_all_results(db: DatabaseHandler):
     result = make_result(
         375,
         "🌟🌟⬛🦑🏮⬛🐟",
@@ -342,7 +343,133 @@ async def test_wipe_removes_all_results(db: DatabaseHandler):
 
     assert await db.check_user_submitted_today(4652) is True
 
-    await db.wipe()
+    await db.wipe_all()
 
     assert await db.check_user_submitted_today(4652) is False
     assert await db.scoreboard() == []
+
+@pytest.mark.asyncio
+async def test_setup_guild_creates_guild_settings(db: DatabaseHandler):
+    await db.setup_guild()
+
+    async with aiosqlite.connect(db.db_file_location) as connection:
+        cursor = await connection.execute(
+            "SELECT guild_id, krillion_channel_id FROM guildSettings WHERE guild_id = ?",
+            (db.guild_id,),
+        )
+        result = await cursor.fetchone()
+
+    assert result == (db.guild_id, None)
+
+
+@pytest.mark.asyncio
+async def test_set_krillion_channel(db: DatabaseHandler):
+    await db.setup_guild()
+
+    await db.set_krillion_channel(987654321)
+
+    assert await db.get_krillion_channel() == 987654321
+
+
+@pytest.mark.asyncio
+async def test_set_krillion_channel_updates_existing_guild(db: DatabaseHandler):
+    await db.setup_guild()
+
+    await db.set_krillion_channel(111111111)
+    await db.set_krillion_channel(222222222)
+
+    assert await db.get_krillion_channel() == 222222222
+
+    async with aiosqlite.connect(db.db_file_location) as connection:
+        cursor = await connection.execute(
+            "SELECT COUNT(*) FROM guildSettings WHERE guild_id = ?",
+            (db.guild_id,),
+        )
+        result = await cursor.fetchone()
+
+    assert result is not None and result[0] == 1
+
+
+@pytest.mark.asyncio
+async def test_get_krillion_channel_returns_false_when_guild_does_not_exist(db: DatabaseHandler):
+    assert await db.get_krillion_channel() is None
+
+
+@pytest.mark.asyncio
+async def test_get_krillion_channel_returns_false_when_channel_is_not_set(db: DatabaseHandler):
+    await db.setup_guild()
+
+    assert await db.get_krillion_channel() is None
+
+
+@pytest.mark.asyncio
+async def test_remove_guild_removes_guild_settings(db: DatabaseHandler):
+    await db.setup_guild()
+    await db.set_krillion_channel(987654321)
+
+    await db.remove_guild()
+
+    async with aiosqlite.connect(db.db_file_location) as connection:
+        cursor = await connection.execute(
+            "SELECT * FROM guildSettings WHERE guild_id = ?",
+            (db.guild_id,),
+        )
+        result = await cursor.fetchone()
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_remove_guild_removes_guild_results(db: DatabaseHandler):
+    await db.setup_guild()
+
+    result = make_result(
+        375,
+        "🌟🌟⬛🦑🏮⬛🐟",
+    )
+
+    await db.log_result(4652, "FireBjorne", result)
+
+    assert await db.check_user_submitted_today(4652) is True
+
+    await db.remove_guild()
+
+    assert await db.check_user_submitted_today(4652) is False
+    assert await db.scoreboard() == []
+
+
+@pytest.mark.asyncio
+async def test_remove_guild_removes_channel_and_results(db: DatabaseHandler):
+    await db.setup_guild()
+    await db.set_krillion_channel(987654321)
+
+    result = make_result(
+        375,
+        "🌟🌟⬛🦑🏮⬛🐟",
+    )
+
+    await db.log_result(4652, "FireBjorne", result)
+
+    await db.remove_guild()
+
+    assert await db.get_krillion_channel() is None
+    assert await db.check_user_submitted_today(4652) is False
+    assert await db.scoreboard() == []
+
+
+@pytest.mark.asyncio
+async def test_remove_guild_does_not_remove_another_guild(
+    db: DatabaseHandler,
+):
+    await db.setup_guild()
+
+    other_guild = DatabaseHandler(456)
+    await other_guild.setup_guild()
+
+    await db.set_krillion_channel(111111111)
+    await other_guild.set_krillion_channel(222222222)
+
+    await db.remove_guild()
+
+    assert await db.get_krillion_channel() is None
+    assert await other_guild.get_krillion_channel() == 222222222
