@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "krillion_bot"
+version = "0.1.0"
+description = "Discord bot to manage Krillion results for a server"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+
+dependencies = [
+    'discord.py',
+    'aiosqlite',
+    'python-dotenv'
+]
+
+[project.optional_dependencies]
+dev = [
+    'pytest',
+    'pytest-asyncio'
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]  # Specifies that code is inside a 'src' directory
+include = ["krillion_bot*"]

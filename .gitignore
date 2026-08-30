@@ -1,0 +1,4 @@
+.krillion_bot
+*.egg-info
+.env
+*.db

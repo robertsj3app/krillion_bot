@@ -1,0 +1,348 @@
+import pytest
+
+from krillion_bot.services.database import DatabaseHandler
+from krillion_bot.services.parser import KrillionResult
+
+
+@pytest.fixture
+def db(tmp_path):
+    """Create an isolated database for each test."""
+    db_path = tmp_path / "test.db"
+
+    DatabaseHandler.initial_setup(str(db_path))
+
+    return DatabaseHandler(123, "#krillion")
+
+
+def make_result(score: int, answers: str, game_number: int = 46) -> KrillionResult:
+    return KrillionResult.from_result_string(
+        f"""
+Krillion #{game_number} 🦐
+{score}
+
+{answers}
+        """
+    )
+
+
+@pytest.mark.asyncio
+async def test_user_has_not_submitted_today(db: DatabaseHandler):
+    assert await db.check_user_submitted_today(4652) is False
+
+
+@pytest.mark.asyncio
+async def test_logging_result_marks_user_as_submitted_today(db: DatabaseHandler):
+    result = make_result(
+        375,
+        "🌟🌟⬛🦑🏮⬛🐟",
+    )
+
+    await db.log_result(4652, "FireBjorne", result)
+
+    assert await db.check_user_submitted_today(4652) is True
+
+
+@pytest.mark.asyncio
+async def test_logging_result_for_one_user_does_not_affect_another_user(db: DatabaseHandler):
+    result = make_result(
+        375,
+        "🌟🌟⬛🦑🏮⬛🐟",
+    )
+
+    await db.log_result(4652, "FireBjorne", result)
+
+    assert await db.check_user_submitted_today(4652) is True
+    assert await db.check_user_submitted_today(4651) is False
+
+
+@pytest.mark.asyncio
+async def test_user_cannot_submit_twice_on_the_same_day(db: DatabaseHandler):
+    first_result = make_result(
+        375,
+        "🌟🌟⬛🦑🏮⬛🐟",
+    )
+
+    second_result = make_result(
+        275,
+        "🌟⬛⬛🦑🏮⬛🐟",
+    )
+
+    await db.log_result(4652, "FireBjorne", first_result)
+
+    with pytest.raises(
+        Exception,
+        match="Cannot submit a second Krillion result for user FireBjorne",
+    ):
+        await db.log_result(4652, "FireBjorne", second_result)
+
+
+@pytest.mark.asyncio
+async def test_different_users_can_submit_results(db: DatabaseHandler):
+    firebjorne = make_result(
+        375,
+        "🌟🌟⬛🦑🏮⬛🐟",
+    )
+    paradigm = make_result(
+        275,
+        "🌟⬛⬛🦑🏮⬛🐟",
+    )
+
+    await db.log_result(4652, "FireBjorne", firebjorne)
+    await db.log_result(4651, "Paradigm", paradigm)
+
+    assert await db.check_user_submitted_today(4652) is True
+    assert await db.check_user_submitted_today(4651) is True
+
+
+@pytest.mark.asyncio
+async def test_scoreboard_returns_results_ordered_by_score(db: DatabaseHandler):
+    firebjorne = make_result(
+        375,
+        "🌟🌟⬛🦑🏮⬛🐟",
+    )
+    paradigm = make_result(
+        275,
+        "🌟⬛⬛🦑🏮⬛🐟",
+    )
+
+    await db.log_result(4652, "FireBjorne", firebjorne)
+    await db.log_result(4651, "Paradigm", paradigm)
+
+    scoreboard = list(await db.scoreboard())
+
+    assert len(scoreboard) == 2
+
+    assert scoreboard[0][3] == "FireBjorne"
+    assert scoreboard[0][5] == 375
+
+    assert scoreboard[1][3] == "Paradigm"
+    assert scoreboard[1][5] == 275
+
+
+@pytest.mark.asyncio
+async def test_scoreboard_orders_equal_scores_by_krillions(db: DatabaseHandler):
+    # Both results have the same score, but the first has more Krillions.
+    result_with_krillion = make_result(
+        100,
+        "🌟⬛⬛⬛⬛⬛⬛",
+    )
+    result_without_krillion = make_result(
+        100,
+        "⬛⬛⬛⬛⬛⬛⬛",
+    )
+
+    await db.log_result(4651, "Paradigm", result_without_krillion)
+    await db.log_result(4652, "FireBjorne", result_with_krillion)
+
+    scoreboard = list(await db.scoreboard())
+
+    assert len(scoreboard) == 2
+
+    assert scoreboard[0][3] == "FireBjorne"
+    assert scoreboard[0][5] == 100
+    assert scoreboard[0][6] == 1
+
+    assert scoreboard[1][3] == "Paradigm"
+    assert scoreboard[1][5] == 100
+    assert scoreboard[1][6] == 0
+
+
+@pytest.mark.asyncio
+async def test_scoreboard_count_limits_number_of_results(db: DatabaseHandler):
+    results = [
+        (
+            4651,
+            "Paradigm",
+            make_result(100, "🌟⬛⬛⬛⬛⬛⬛"),
+        ),
+        (
+            4652,
+            "FireBjorne",
+            make_result(90, "🦑⬛⬛⬛⬛⬛⬛"),
+        ),
+        (
+            4653,
+            "Obscur",
+            make_result(80, "🫧⬛⬛⬛⬛⬛⬛"),
+        ),
+    ]
+
+    for user_id, name, result in results:
+        await db.log_result(user_id, name, result)
+
+    scoreboard = list(await db.scoreboard(count=2))
+
+    assert len(scoreboard) == 2
+    assert scoreboard[0][3] == "Paradigm"
+    assert scoreboard[1][3] == "FireBjorne"
+
+
+@pytest.mark.asyncio
+async def test_best_game_returns_highest_scoring_game(db: DatabaseHandler):
+    worse = make_result(
+        275,
+        "🌟⬛⬛🦑🏮⬛🐟",
+        game_number=46,
+    )
+    better = make_result(
+        375,
+        "🌟🌟⬛🦑🏮⬛🐟",
+        game_number=47,
+    )
+
+    await db.log_result(4652, "FireBjorne", worse)
+
+    # A user can only submit once per day, so use a different user for
+    # the second result and insert it directly into the database for
+    # this best_game test.
+    #
+    # Instead, recreate the test using the database connection directly.
+    import aiosqlite
+
+    async with aiosqlite.connect(db.db_file_location) as connection:
+        await connection.execute(
+            """
+            INSERT INTO krillionResults (
+                guild_id,
+                author_id,
+                author_name,
+                game_number,
+                score,
+                krillions,
+                deep_cuts,
+                rares,
+                schoolers,
+                clevers,
+                planktons,
+                blanks,
+                result_order,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            """,
+            (
+                db.guild_id,
+                4652,
+                "FireBjorne",
+                better.game_number,
+                better.score,
+                better.krillions,
+                better.deep_cuts,
+                better.rares,
+                better.schoolers,
+                better.clevers,
+                better.planktons,
+                better.empties,
+                "".join(c.category[0] for c in better.answers),
+            ),
+        )
+        await connection.commit()
+
+    best = await db.best_game(4652)
+
+    assert best is not None
+
+    game_result = KrillionResult.from_database_row(tuple(best))
+
+    assert game_result.game_number == 47
+    assert game_result.score == 375
+    assert game_result.as_emoji() == "🌟🌟⬛🦑🏮⬛🐟"
+
+
+@pytest.mark.asyncio
+async def test_best_game_returns_none_for_unknown_user(db: DatabaseHandler):
+    assert await db.best_game(999999) is None
+
+
+@pytest.mark.asyncio
+async def test_aggregate_stats(db: DatabaseHandler):
+    first = make_result(
+        375,
+        "🌟🌟⬛🦑🏮⬛🐟",
+    )
+    second = make_result(
+        275,
+        "🌟⬛⬛🦑🏮⬛🐟",
+    )
+
+    await db.log_result(4652, "FireBjorne", first)
+
+    # log_result intentionally prevents the same user submitting twice
+    # on the same day. Insert the second historical result directly.
+    import aiosqlite
+
+    async with aiosqlite.connect(db.db_file_location) as connection:
+        await connection.execute(
+            """
+            INSERT INTO krillionResults (
+                guild_id,
+                author_id,
+                author_name,
+                game_number,
+                score,
+                krillions,
+                deep_cuts,
+                rares,
+                schoolers,
+                clevers,
+                planktons,
+                blanks,
+                result_order,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            """,
+            (
+                db.guild_id,
+                4652,
+                "FireBjorne",
+                second.game_number,
+                second.score,
+                second.krillions,
+                second.deep_cuts,
+                second.rares,
+                second.schoolers,
+                second.clevers,
+                second.planktons,
+                second.empties,
+                "".join(c.category[0] for c in second.answers),
+            ),
+        )
+        await connection.commit()
+
+    stats = await db.aggregate_stats(4652)
+
+    assert stats == (
+        first.score + second.score,
+        first.krillions + second.krillions,
+        first.deep_cuts + second.deep_cuts,
+        first.rares + second.rares,
+        first.schoolers + second.schoolers,
+        first.clevers + second.clevers,
+        first.planktons + second.planktons,
+        first.empties + second.empties,
+    )
+
+
+@pytest.mark.asyncio
+async def test_aggregate_stats_for_unknown_user_returns_null_values(db: DatabaseHandler):
+    stats = await db.aggregate_stats(999999)
+
+    assert stats == (None, None, None, None, None, None, None, None)
+
+
+@pytest.mark.asyncio
+async def test_wipe_removes_all_results(db: DatabaseHandler):
+    result = make_result(
+        375,
+        "🌟🌟⬛🦑🏮⬛🐟",
+    )
+
+    await db.log_result(4652, "FireBjorne", result)
+
+    assert await db.check_user_submitted_today(4652) is True
+
+    await db.wipe()
+
+    assert await db.check_user_submitted_today(4652) is False
+    assert await db.scoreboard() == []
