@@ -8,7 +8,6 @@ from dotenv import load_dotenv
 from krillion_bot.commands import register_commands
 from krillion_bot.events import register_events
 
-
 load_dotenv()
 
 TOKEN = os.environ["DISCORD_TOKEN"]

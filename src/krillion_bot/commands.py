@@ -1,4 +1,4 @@
-from discord.ext import commands
+from discord.ext import commands, tasks
 import discord
 from krillion_bot.services.database import DatabaseHandler
 from krillion_bot.services.displays import DailyScoreboard, OverallScoreboard, UserStats
@@ -9,18 +9,23 @@ def register_commands(bot: commands.Bot):
     
     @bot.command()
     @commands.is_owner()
-    async def sync(ctx):
+    async def sync(ctx: commands.Context):
         # Copies global commands to this specific server instantly
-        bot.tree.copy_global_to(guild=ctx.guild)
-        await bot.tree.sync(guild=ctx.guild)
-        await ctx.send("Synced to this guild instantly!")
+        if ctx.guild:
+            bot.tree.copy_global_to(guild=ctx.guild)
+            await bot.tree.sync(guild=ctx.guild)
+            await ctx.send(f"Synced to {ctx.guild.name}")
+
+    @bot.tree.command(name="link", description="Post a link to the daily dive.")
+    async def link(interaction: discord.Interaction):
+        await interaction.response.send_message("🦐 [Click here for the daily dive!](https://krillion.io/) 🦐")
 
     @bot.tree.command(name="set_krillion_channel", description=f"Set the channel for {bot.user.name if bot.user else 'this bot'} to monitor for posted responses and send scoreboards to.")
     @commands.has_permissions(manage_channels=True) # Restrict this command to admins/mods
     async def set_krillion_channel(interaction: discord.Interaction, channel: discord.TextChannel):
         if interaction.guild:
             await DatabaseHandler(interaction.guild.id).set_krillion_channel(channel.id)
-            await interaction.response.send_message(f"🎯 Target channel successfully set to {channel.mention}")
+            await interaction.response.send_message(f"🎯 Target channel successfully set to {channel.mention}", ephemeral=True)
 
     @bot.tree.command(name="reset_scores", description="Wipe the slate clean. Clears all recorded results for this server.")
     @commands.has_permissions(manage_channels=True) # Restrict this command to admins/mods
