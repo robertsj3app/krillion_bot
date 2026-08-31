@@ -2,23 +2,10 @@ from dataclasses import dataclass, field
 from typing import Sequence, Self, TypeVar
 import re
 from textwrap import dedent
+from krillion_bot.utils import AnswerCategories, KrillionCategory
 
 T = TypeVar('T')
 DatabaseRowType = tuple[int, int, int, str, int, int, int, int, int, int, int, int, int, str, str]
-
-@dataclass(frozen=True)
-class KrillionCategory:
-
-    unicode: str
-    category: str
-    score: int
-
-    def __repr__(self):
-        return f'KrillionCategory({self.category})'
-
-    def as_emoji(self: Self):
-        return self.unicode.encode("utf-8").decode("unicode-escape")
-
 
 @dataclass
 class KrillionResult:
@@ -35,48 +22,13 @@ class KrillionResult:
     empties: int = field(init=False)
 
     FORMAT = re.compile((r'Krillion #(\d+) \\U0001f990\n(\d+)\n\n' + (r'(\\[U|u][a-fA-F0-9]{4,})' * 7)))
-    CATEGORIES = [
-        KrillionCategory(
-            r"\U0001f31f",
-            "One in a Krillion",
-            100
-        ),
-        KrillionCategory(
-            r"\U0001f991",
-            "Deep Cut",
-            85
-        ),
-        KrillionCategory(
-            r"\U0001f3ee",
-            "Rare",
-            60
-        ),
-        KrillionCategory(
-            r"\U0001f41f",
-            "Schooler",
-            30
-        ),
-        KrillionCategory(
-            r"\U0001f921",
-            "Too Clever",
-            15
-        ),
-        KrillionCategory(
-            r"\U0001fae7",
-            "Plankton",
-            10
-        ),
-        KrillionCategory(
-            r"\u2b1b",
-            "No Response",
-            0
-        )
-    ]
+
+    #TODO: Deprecated, remove from tests
     CATEGORY_LOOKUP_UNICODE = {
-        c.unicode: c for c in CATEGORIES
+        c.value.unicode: c.value for c in AnswerCategories
     }
     CATEGORY_LOOKUP_CHAR = {
-        c.category[0]: c for c in CATEGORIES
+        c.value.category[0]: c.value for c in AnswerCategories
     }
 
     def __post_init__(self: Self):
@@ -112,35 +64,16 @@ class KrillionResult:
         return sum(a.score for a in self.answers) == self.score
 
     @staticmethod
-    def _parse_by_lookup(game_number, score, lookup: dict[T, KrillionCategory], keys: Sequence[T]):
-        bad_lookup: list[T] = []
-        answers: list[KrillionCategory] = []
-        for k in keys:
-            lookup_result = lookup.get(k)
-            if isinstance(lookup_result, KrillionCategory):
-                answers.append(lookup_result)
-            else:
-                bad_lookup.append(k)
-            
-        if len(bad_lookup) == 0:
-            return KrillionResult(int(game_number), int(score), answers)
-        else:
-            raise ValueError(f'Unable to map found unicode string(s) to Krillion categories: {bad_lookup}')
-
-    @staticmethod
     def from_result_string(result: str) -> 'KrillionResult':
         decoded = dedent(result.strip().encode('ascii', errors='backslashreplace').decode('ascii'))
         match = re.match(KrillionResult.FORMAT, decoded)
         if match:
             game_number, score, *answers_unicode = match.groups()
-            return KrillionResult._parse_by_lookup(game_number, score, KrillionResult.CATEGORY_LOOKUP_UNICODE, answers_unicode)
+            return KrillionResult(int(game_number), int(score), [AnswerCategories.from_unicode(u).value for u in answers_unicode])
         else:
             raise ValueError('Tried to create KrillionResult from invalid string. Check formatting and make sure to paste exactly the result of selecting "Copy Results".')
             
     @staticmethod
     def from_database_row(row: DatabaseRowType):
         _, _, _, _, game_number, score, _, _, _, _, _, _, _, answers_str, _, = row
-        return KrillionResult._parse_by_lookup(game_number, score, KrillionResult.CATEGORY_LOOKUP_CHAR, answers_str)
-                
-
-        
+        return KrillionResult(game_number, score, [AnswerCategories.from_char(c).value for c in answers_str])

@@ -34,8 +34,8 @@ class Scoreboard:
         lines = [
             f"{medals[i] if i < 3 else f'{i + 1}.'} "
             f"{element.user} - "
-            f"{element.result.score} "
-            f"({element.result.as_emoji()})"
+            f"{getattr(element.result, self.sort_by)} " +
+            (f"({element.result.as_emoji()})" if self.sort_by == 'score' else "")
             for i, element in enumerate(self.entries[:top_n])
         ]
 
@@ -65,7 +65,7 @@ class DailyScoreboard(Scoreboard):
 
         if winner and final_result:
             winner_line = (
-                f"🥳 🎉 **Today's Winner: {winner.user}!** 🎉 🥳\n"
+                f"🎉 **Today's Winner: {winner.user}!** 🎉\n"
                 f"🏆 **Score:** {winner.result.score} "
             )
         elif winner and not final_result:
@@ -89,18 +89,82 @@ class DailyScoreboard(Scoreboard):
 
 @dataclass
 class OverallScoreboard(Scoreboard):
-
-    def __post_init__(self: Self):
-        super().__post_init__()
-        self.entries_krillions = sorted(self.entries, key=lambda e: e.result.krillions)
     
     def as_message(self: Self, top_n: int | None = None) -> str:
         winner = self.entries[0] if self.entries else None
-        scoreboard = super().as_message(top_n)
+        scoreboard_msg = super().as_message(top_n)
         
+        scoreboard_krillions = Scoreboard(self.entries, sort_by='krillions')
+        winner_krillions = scoreboard_krillions.entries[0] if scoreboard_krillions.entries else None
+        scoreboard_krillions_msg = scoreboard_krillions.as_message(top_n)
+        winner_line = ""
+        winner_line_krillions = ""
         if winner:
             winner_line = (
-                f"🥳 🎉 **Overall Leader: {winner.user}!** 🎉 🥳\n"
+                f"🎉 **Overall Points Leader: {winner.user}!** 🎉\n"
                 f"🏆 **Score:** {winner.result.score} "
             )
-        
+        else:
+            winner_line = winner_line_krillions = "😢 **No results ever logged!**"
+
+        if winner_krillions:
+            winner_line_krillions = (
+                f"🌟 **Total # Krillions Leader: {winner_krillions.user}!** 🌟\n"
+                f"🦐🏆 **Score:** {winner_krillions.result.krillions} "
+            )
+
+        return (
+            f"🏆 **OVERALL RANKINGS** 🏆\n"
+            "\n"
+            f"{winner_line}\n"
+            "\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"{scoreboard_msg}\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            "\n"
+            f"{winner_line_krillions}\n"
+            "\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"{scoreboard_krillions_msg}\n"
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        )
+
+@dataclass
+class UserStats:
+
+    user_name: str
+    total_score: int
+    latest_game: int
+    latest_result: str
+    total_krillions: int
+    total_deep_cuts: int
+    total_rares: int
+    total_schoolers: int
+    total_clevers: int
+    total_planktons: int
+    total_blanks: int
+    best_game: int
+    best_result: str
+
+    @classmethod
+    def from_database_result(cls, agg_result: DatabaseRowType, best_game_result: DatabaseRowType) -> 'UserStats':
+        _, _, _, user_name, latest_game, total_score, total_krillions, total_deep_cuts, total_rares, total_schoolers, total_clevers, total_planktons, total_blanks, latest_result, _ = agg_result
+        _, _, _, user_name_2, best_game, _, _, _, _, _, _, _, _, best_result, _ = best_game_result
+        if user_name != user_name_2:
+            raise ValueError('Cannot build user stats from results for two different users!')
+        return UserStats(user_name, total_score, latest_game, latest_result, total_krillions, total_deep_cuts, total_rares, total_schoolers, total_clevers, total_planktons, total_blanks, best_game, best_result)
+
+    def as_message(self: Self):
+        r = KrillionResult.from_result_string(self.latest_result)
+        br = KrillionResult.from_result_string(self.best_result)
+        return (
+            f"**STATS FOR USER {self.user_name}**\n"
+            "\n"
+            f"**Latest Game:** #{self.latest_game} ({r.score} - {r.as_emoji()})\n"
+            f"**Best Game:** #{self.best_game} ({br.score} - {br.as_emoji()})\n"
+            f"**Lifetime Score:** {self.total_score}\n"
+            f"**Total Responses by Category:**\n" #+
+            #("\n".join(f"{e}: {c}"))
+            
+            
+        )

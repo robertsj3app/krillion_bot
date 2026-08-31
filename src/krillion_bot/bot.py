@@ -1,16 +1,15 @@
 import os
 
 import discord
-from discord import Message, app_commands
+from discord import Message
 from discord.ext import commands
 from dotenv import load_dotenv
 
 from krillion_bot.services.database import DatabaseHandler, DoubleSubmissionException
 from krillion_bot.services.parser import KrillionResult
-from krillion_bot.services.displays import DailyScoreboard
+from krillion_bot.services.displays import DailyScoreboard, OverallScoreboard
 from krillion_bot.utils import current_game_number
 
-from typing import Optional
 
 load_dotenv()
 
@@ -18,6 +17,7 @@ TOKEN = os.environ["DISCORD_TOKEN"]
 
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True
 
 bot = commands.Bot(
     command_prefix="!",
@@ -63,7 +63,7 @@ async def on_guild_remove(guild: discord.Guild):
 
 @bot.command()
 @commands.is_owner()
-async def sync_guild(ctx):
+async def sync(ctx):
     # Copies global commands to this specific server instantly
     bot.tree.copy_global_to(guild=ctx.guild)
     await bot.tree.sync(guild=ctx.guild)
@@ -98,5 +98,20 @@ async def past_scoreboard(interaction: discord.Interaction, game_number: int):
         data = [tuple(d) for d in await DatabaseHandler(interaction.guild.id).scoreboard(game_number)]
         s = DailyScoreboard.from_database_result(data)
         await interaction.response.send_message(s.as_message(final_result=True if game_number < current_game_number() else False))
+
+@bot.tree.command(name="overall_scoreboard", description="Show the overall rankings for this server, both for total points and number of krillions!")
+async def overall_scoreboard(interaction: discord.Interaction):
+    if interaction.guild:
+        h = DatabaseHandler(interaction.guild.id)
+        aggregate_results = []
+        for u in interaction.guild.members:
+            print(u.name)
+            stats = await h.aggregate_stats(u.id)
+            if stats:
+                aggregate_results.append(tuple(stats))
+        
+        
+        s = OverallScoreboard.from_database_result(aggregate_results)
+        await interaction.response.send_message(s.as_message())
 
 bot.run(TOKEN)

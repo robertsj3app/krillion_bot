@@ -234,24 +234,30 @@ async def test_aggregate_stats(db: DatabaseHandler):
     await db.log_result(4652, "FireBjorne", second, force=True)
 
     stats = await db.aggregate_stats(4652)
-
-    assert stats == (
-        first.score + second.score,
-        first.krillions + second.krillions,
-        first.deep_cuts + second.deep_cuts,
-        first.rares + second.rares,
-        first.schoolers + second.schoolers,
-        first.clevers + second.clevers,
-        first.planktons + second.planktons,
-        first.empties + second.empties,
-    )
+    assert stats is not None
+    #stats[0] is the latest row_id, not ever needed
+    assert stats[1] == db.guild_id
+    assert stats[2] == 4652
+    assert stats[3] == 'FireBjorne'
+    # stats[4] should be the most recent game played, not super important here
+    assert stats[4] == 47
+    assert stats[5] == first.score + second.score
+    assert stats[6] == first.krillions + second.krillions
+    assert stats[7] == first.deep_cuts + second.deep_cuts
+    assert stats[8] == first.rares + second.rares
+    assert stats[9] == first.schoolers + second.schoolers
+    assert stats[10] == first.clevers + second.clevers
+    assert stats[11] == first.planktons + second.planktons
+    assert stats[12] == first.empties + second.empties
+    # stats[13] is latest result, not needed here probably
+    # stats[14] is latest submission timestamp, again not relevant
 
 
 @pytest.mark.asyncio
-async def test_aggregate_stats_for_unknown_user_returns_null_values(db: DatabaseHandler):
+async def test_aggregate_stats_for_unknown_user_returns_none(db: DatabaseHandler):
     stats = await db.aggregate_stats(999999)
 
-    assert stats == (None, None, None, None, None, None, None, None)
+    assert stats == None
 
 
 @pytest.mark.asyncio

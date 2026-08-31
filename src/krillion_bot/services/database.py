@@ -225,6 +225,11 @@ class DatabaseHandler:
             cursor = await db.execute(
                 """
                 SELECT 
+                    MAX(id),
+                    guild_id,
+                    author_id,
+                    author_name,
+                    MAX(game_number),
                     SUM(score),
                     SUM(krillions),
                     SUM(deep_cuts),
@@ -232,9 +237,12 @@ class DatabaseHandler:
                     SUM(schoolers),
                     SUM(clevers),
                     SUM(planktons),
-                    SUM(blanks)
+                    SUM(blanks),
+                    MAX(result_order),
+                    MAX(created_at)
                 FROM krillionResults
                 WHERE author_id = ?
+                GROUP BY guild_id, author_id, author_name
                 """,
                 (user_id,)
             )

@@ -165,7 +165,7 @@ def test_daily_scoreboard_message_contains_winner():
 
     message = scoreboard.as_message()
 
-    assert "🥳 🎉 **Today's Winner: FireBjorne!** 🎉 🥳" in message
+    assert "🎉 **Today's Winner: FireBjorne!** 🎉" in message
     assert "🏆 **Score:** 230" in message
 
 
