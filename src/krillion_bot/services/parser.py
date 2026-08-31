@@ -72,7 +72,7 @@ class KrillionResult:
             return KrillionResult(int(game_number), int(score), [AnswerCategories.from_unicode(u).value for u in answers_unicode])
         else:
             raise ValueError('Tried to create KrillionResult from invalid string. Check formatting and make sure to paste exactly the result of selecting "Copy Results".')
-            
+    
     @staticmethod
     def from_database_row(row: DatabaseRowType):
         _, _, _, _, game_number, score, _, _, _, _, _, _, _, answers_str, _, = row

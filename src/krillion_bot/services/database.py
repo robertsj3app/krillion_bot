@@ -206,7 +206,6 @@ class DatabaseHandler:
 
             return await cursor.fetchall()
 
-
     async def best_game(self: Self, user_id: int):
         async with aiosqlite.connect(self.db_file_location) as db:
             cursor = await db.execute(
@@ -219,6 +218,19 @@ class DatabaseHandler:
                 (user_id,)
             )
             return await cursor.fetchone()
+
+    async def latest_game(self: Self, user_id: int):
+            async with aiosqlite.connect(self.db_file_location) as db:
+                cursor = await db.execute(
+                    """
+                    SELECT * FROM krillionResults
+                    WHERE author_id = ?
+                    ORDER BY game_number DESC
+                    LIMIT 1
+                    """,
+                    (user_id,)
+                )
+                return await cursor.fetchone()
 
     async def aggregate_stats(self: Self, user_id: int):
         async with aiosqlite.connect(self.db_file_location) as db:

@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from krillion_bot.services.parser import KrillionResult, DatabaseRowType
 from krillion_bot.utils.time import get_next_utc_4_boundary_from, format_datetime_for_discord
-from krillion_bot.utils import current_game_number
+from krillion_bot.utils import current_game_number, Emojis
 from typing import Self, Optional
 from datetime import datetime
 
@@ -14,6 +14,7 @@ class ScoreboardRow:
     @staticmethod
     def from_database_row(row: DatabaseRowType) -> 'ScoreboardRow':
         return ScoreboardRow(row[3], KrillionResult.from_database_row(row))
+
 
 @dataclass
 class Scoreboard:
@@ -44,6 +45,7 @@ class Scoreboard:
     @classmethod
     def from_database_result(cls, result: list[DatabaseRowType]):
         return cls([ScoreboardRow.from_database_row(r) for r in result])
+
 
 @dataclass
 class DailyScoreboard(Scoreboard):
@@ -86,6 +88,7 @@ class DailyScoreboard(Scoreboard):
             f"{scoreboard}\n"
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         )
+    
 
 @dataclass
 class OverallScoreboard(Scoreboard):
@@ -128,14 +131,13 @@ class OverallScoreboard(Scoreboard):
             f"{scoreboard_krillions_msg}\n"
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         )
+    
 
 @dataclass
 class UserStats:
 
     user_name: str
     total_score: int
-    latest_game: int
-    latest_result: str
     total_krillions: int
     total_deep_cuts: int
     total_rares: int
@@ -143,28 +145,51 @@ class UserStats:
     total_clevers: int
     total_planktons: int
     total_blanks: int
-    best_game: int
-    best_result: str
+    best_game: KrillionResult
+    latest_game: KrillionResult
+
+    def __post_init__(self):
+        self.EMOJI_MAPPING = {
+            Emojis.K: self.total_krillions,
+            Emojis.D: self.total_deep_cuts,
+            Emojis.R: self.total_rares,
+            Emojis.S: self.total_schoolers,
+            Emojis.C: self.total_clevers,
+            Emojis.P: self.total_planktons,
+            Emojis.E: self.total_blanks
+        }
 
     @classmethod
-    def from_database_result(cls, agg_result: DatabaseRowType, best_game_result: DatabaseRowType) -> 'UserStats':
-        _, _, _, user_name, latest_game, total_score, total_krillions, total_deep_cuts, total_rares, total_schoolers, total_clevers, total_planktons, total_blanks, latest_result, _ = agg_result
-        _, _, _, user_name_2, best_game, _, _, _, _, _, _, _, _, best_result, _ = best_game_result
-        if user_name != user_name_2:
-            raise ValueError('Cannot build user stats from results for two different users!')
-        return UserStats(user_name, total_score, latest_game, latest_result, total_krillions, total_deep_cuts, total_rares, total_schoolers, total_clevers, total_planktons, total_blanks, best_game, best_result)
+    def from_database_result(cls, agg_result: DatabaseRowType, best_game_result: DatabaseRowType, latest_game_result: DatabaseRowType) -> 'UserStats':
+        _, _, _, _, _, total_score, total_krillions, total_deep_cuts, total_rares, total_schoolers, total_clevers, total_planktons, total_blanks, _, _ = agg_result
+
+        user_name_1 = agg_result[3]
+        user_name_2 = best_game_result[3]
+        user_name_3 = latest_game_result[3]
+
+        if user_name_1 != user_name_2 != user_name_3:
+            raise ValueError('Cannot build user stats from results for different users!')
+        return UserStats(
+            user_name_1, 
+            total_score, 
+            total_krillions, 
+            total_deep_cuts, 
+            total_rares, 
+            total_schoolers, 
+            total_clevers, 
+            total_planktons, 
+            total_blanks, 
+            KrillionResult.from_database_row(best_game_result),
+            KrillionResult.from_database_row(latest_game_result)
+        )
 
     def as_message(self: Self):
-        r = KrillionResult.from_result_string(self.latest_result)
-        br = KrillionResult.from_result_string(self.best_result)
         return (
             f"**STATS FOR USER {self.user_name}**\n"
             "\n"
-            f"**Latest Game:** #{self.latest_game} ({r.score} - {r.as_emoji()})\n"
-            f"**Best Game:** #{self.best_game} ({br.score} - {br.as_emoji()})\n"
+            f"**Latest Game:** #{self.latest_game.game_number} ({self.latest_game.score} - {self.latest_game.as_emoji()})\n"
+            f"**Best Game:** #{self.best_game.game_number} ({self.best_game.score} - {self.best_game.as_emoji()})\n"
             f"**Lifetime Score:** {self.total_score}\n"
-            f"**Total Responses by Category:**\n" #+
-            #("\n".join(f"{e}: {c}"))
-            
-            
+            f"**Total Responses by Category:**\n" +
+            ("\n".join(f"{k}: {v}" for k,v in self.EMOJI_MAPPING.items()))
         )

@@ -7,8 +7,9 @@ from dotenv import load_dotenv
 
 from krillion_bot.services.database import DatabaseHandler, DoubleSubmissionException
 from krillion_bot.services.parser import KrillionResult
-from krillion_bot.services.displays import DailyScoreboard, OverallScoreboard
+from krillion_bot.services.displays import DailyScoreboard, OverallScoreboard, UserStats
 from krillion_bot.utils import current_game_number
+from typing import Optional
 
 
 load_dotenv()
@@ -69,49 +70,64 @@ async def sync(ctx):
     await bot.tree.sync(guild=ctx.guild)
     await ctx.send("Synced to this guild instantly!")
 
-@bot.tree.command(name="set_krillion_channel", description="Set the channel for MechaShrimp to monitor for posted responses and send scoreboards to.")
+@bot.tree.command(name="set_krillion_channel", description=f"Set the channel for {bot.user.name if bot.user else 'this bot'} to monitor for posted responses and send scoreboards to.")
 @commands.has_permissions(manage_channels=True) # Restrict this command to admins/mods
 async def set_krillion_channel(interaction: discord.Interaction, channel: discord.TextChannel):
     if interaction.guild:
         await DatabaseHandler(interaction.guild.id).set_krillion_channel(channel.id)
         await interaction.response.send_message(f"🎯 Target channel successfully set to {channel.mention}")
 
-@bot.tree.command(name="reset_scores", description="Wipe the slate clean! Clears all recorded results for this server.")
+@bot.tree.command(name="reset_scores", description="Wipe the slate clean. Clears all recorded results for this server.")
 @commands.has_permissions(manage_channels=True) # Restrict this command to admins/mods
 async def reset_scores(interaction: discord.Interaction):
     if interaction.guild:
         await DatabaseHandler(interaction.guild.id).wipe()
         await interaction.response.send_message(f"Scores cleared!")
 
-@bot.tree.command(name="daily_scoreboard", description="Show today's scoreboard! Positions may change as new results are added.")
-async def daily_scoreboard(interaction: discord.Interaction):
-    if interaction.guild:
-        data = [tuple(d) for d in await DatabaseHandler(interaction.guild.id).scoreboard('daily')]
-        s = DailyScoreboard.from_database_result(data)
-        await interaction.response.send_message(s.as_message(final_result=False))
+# @bot.tree.command(name="daily_scoreboard", description="Show today's scoreboard. Positions may change as new results are added.")
+# async def daily_scoreboard(interaction: discord.Interaction):
+#     if interaction.guild:
+#         data = [tuple(d) for d in await DatabaseHandler(interaction.guild.id).scoreboard('daily')]
+#         s = DailyScoreboard.from_database_result(data)
+#         await interaction.response.send_message(s.as_message(final_result=False))
 
-@bot.tree.command(name="past_scoreboard", description="Show a scoreboard for a past game.")
-async def past_scoreboard(interaction: discord.Interaction, game_number: int):
+@bot.tree.command(name="scoreboard", description="Show a scoreboard for a past game.")
+async def scoreboard(interaction: discord.Interaction, game_number: Optional[int]):
+    if not game_number:
+        game_number = current_game_number()
+        
     if game_number > current_game_number():
         await interaction.response.send_message("That game number hasn't happened yet!")
+    
     if interaction.guild:
         data = [tuple(d) for d in await DatabaseHandler(interaction.guild.id).scoreboard(game_number)]
         s = DailyScoreboard.from_database_result(data)
         await interaction.response.send_message(s.as_message(final_result=True if game_number < current_game_number() else False))
 
-@bot.tree.command(name="overall_scoreboard", description="Show the overall rankings for this server, both for total points and number of krillions!")
+@bot.tree.command(name="overall_scoreboard", description="Show the overall rankings for this server, both for total points and number of krillions.")
 async def overall_scoreboard(interaction: discord.Interaction):
     if interaction.guild:
         h = DatabaseHandler(interaction.guild.id)
         aggregate_results = []
         for u in interaction.guild.members:
-            print(u.name)
             stats = await h.aggregate_stats(u.id)
             if stats:
                 aggregate_results.append(tuple(stats))
         
-        
         s = OverallScoreboard.from_database_result(aggregate_results)
         await interaction.response.send_message(s.as_message())
+
+@bot.tree.command(name="user_stats", description="Show the lifetime stats for a user.")
+async def user_stats(interaction: discord.Interaction, user: discord.User):
+    if interaction.guild:
+        h = DatabaseHandler(interaction.guild.id)
+        stats = await h.aggregate_stats(user.id)
+        best_game = await h.best_game(user.id)
+        latest_game = await h.latest_game(user.id)
+        if stats and best_game and latest_game:
+            s = UserStats.from_database_result(tuple(stats), tuple(best_game), tuple(latest_game))
+            await interaction.response.send_message(s.as_message())
+        else:
+            await interaction.response.send_message(f"❌ No results found for user {user.mention}")
 
 bot.run(TOKEN)
