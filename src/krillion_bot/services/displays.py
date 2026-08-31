@@ -20,9 +20,10 @@ class Scoreboard:
 
     winner: str = field(init=False)
     entries: list[ScoreboardRow]
+    sort_by: str = field(default='score')
 
     def __post_init__(self: Self):
-        self.entries = sorted(self.entries, key=lambda e: e.result.score, reverse=True)
+        self.entries = sorted(self.entries, key=lambda e: getattr(e.result, self.sort_by), reverse=True)
         self.winner = self.entries[0].user if self.entries else ""
 
     def as_message(self: Self, top_n: Optional[int] = None) -> str:
@@ -44,6 +45,7 @@ class Scoreboard:
     def from_database_result(cls, result: list[DatabaseRowType]):
         return cls([ScoreboardRow.from_database_row(r) for r in result])
 
+@dataclass
 class DailyScoreboard(Scoreboard):
 
     game_number: int = field(init=False)
@@ -85,3 +87,20 @@ class DailyScoreboard(Scoreboard):
             "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
         )
 
+@dataclass
+class OverallScoreboard(Scoreboard):
+
+    def __post_init__(self: Self):
+        super().__post_init__()
+        self.entries_krillions = sorted(self.entries, key=lambda e: e.result.krillions)
+    
+    def as_message(self: Self, top_n: int | None = None) -> str:
+        winner = self.entries[0] if self.entries else None
+        scoreboard = super().as_message(top_n)
+        
+        if winner:
+            winner_line = (
+                f"🥳 🎉 **Overall Leader: {winner.user}!** 🎉 🥳\n"
+                f"🏆 **Score:** {winner.result.score} "
+            )
+        

@@ -106,13 +106,13 @@ class DatabaseHandler:
             result = await cursor.fetchone()
         return result is not None and bool(result[0])
 
-    async def log_result(self: Self, author_id: int, author_name: str, result: KrillionResult):
+    async def log_result(self: Self, author_id: int, author_name: str, result: KrillionResult, force: bool = False):
         async with aiosqlite.connect(self.db_file_location) as db:
 
             if await self.check_user_submitted_game(author_id, result.game_number):
                 raise DoubleSubmissionException(f"Cannot submit a second Krillion result for user {author_name} on the same day!")
 
-            if result.game_number != current_game_number():
+            if not force and result.game_number != current_game_number():
                 raise DoubleSubmissionException(f"Cannot log a result for a game other than today's current!")
             
             await db.execute(

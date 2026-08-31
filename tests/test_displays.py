@@ -28,23 +28,23 @@ def make_scoreboard_rows() -> list[ScoreboardRow]:
     return [
         ScoreboardRow(
             "The Owl Baron",
-            make_result(155, "🐟🤡🐟🐟🫧🫧🐟"),
+            make_result(155, "🐟🤡🐟🐟🫧🫧🐟", current_game_number()),
         ),
         ScoreboardRow(
             "The Raven Knight",
-            make_result(200, "🫧⬛🐟🦑🐟🫧🦑"),
+            make_result(200, "🫧⬛🐟🦑🐟🫧🦑", current_game_number()),
         ),
         ScoreboardRow(
             "Obscur",
-            make_result(190, "⬛🫧⬛🦑🐟🐟🦑"),
+            make_result(190, "⬛🫧⬛🦑🐟🐟🦑", current_game_number()),
         ),
         ScoreboardRow(
             "FireBjorne",
-            make_result(230, "🐟🦑🐟🫧🦑🫧🐟"),
+            make_result(230, "🐟🦑🐟🫧🦑🫧🐟", current_game_number()),
         ),
         ScoreboardRow(
             "The Bookkeeper of Domino",
-            make_result(180, "🫧🦑🫧🐟🐟🫧🐟"),
+            make_result(180, "🫧🦑🫧🐟🐟🫧🐟", current_game_number()),
         ),
     ]
 
@@ -122,7 +122,7 @@ def test_scoreboard_as_message_with_no_top_n_includes_everyone():
 def test_daily_scoreboard_sets_game_number():
     scoreboard = DailyScoreboard(make_scoreboard_rows())
 
-    assert scoreboard.game_number == 46
+    assert scoreboard.game_number == current_game_number()
 
 
 def test_daily_scoreboard_winner_is_highest_scoring_player():
@@ -140,7 +140,7 @@ def test_daily_scoreboard_rejects_results_from_different_games():
             make_result(
                 250,
                 "🌟🌟⬛🦑🏮⬛🐟",
-                game_number=47,
+                game_number=32,
             ),
         )
     )

@@ -27,7 +27,7 @@ bot = commands.Bot(
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
-    DatabaseHandler.initial_setup(r"C:\Users\100 Acre Wood\Documents\Coding\krillion_bot\test.db")
+    DatabaseHandler.initial_setup(os.environ['DB_FILE_LOCATION'])
 
 @bot.event
 async def on_message(message: Message):
@@ -40,7 +40,6 @@ async def on_message(message: Message):
         if message.channel.id == await h.get_krillion_channel():
             try:
                 result = KrillionResult.from_result_string(message.content)
-                print(f"Found valid Krillion result: {result}")
                 try:
                     await h.log_result(message.author.id, message.author.mention, result)
                     await message.add_reaction("✅")
@@ -88,7 +87,6 @@ async def reset_scores(interaction: discord.Interaction):
 async def daily_scoreboard(interaction: discord.Interaction):
     if interaction.guild:
         data = [tuple(d) for d in await DatabaseHandler(interaction.guild.id).scoreboard('daily')]
-        print(data)
         s = DailyScoreboard.from_database_result(data)
         await interaction.response.send_message(s.as_message(final_result=False))
 

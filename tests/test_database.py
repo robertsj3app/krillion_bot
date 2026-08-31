@@ -2,6 +2,7 @@ import pytest
 
 from krillion_bot.services.database import DatabaseHandler
 from krillion_bot.services.parser import KrillionResult
+from krillion_bot.utils import current_game_number
 import aiosqlite
 
 
@@ -36,6 +37,7 @@ async def test_logging_result_marks_user_as_submitted_today(db: DatabaseHandler)
     result = make_result(
         375,
         "🌟🌟⬛🦑🏮⬛🐟",
+        current_game_number()
     )
 
     await db.log_result(4652, "FireBjorne", result)
@@ -48,6 +50,7 @@ async def test_logging_result_for_one_user_does_not_affect_another_user(db: Data
     result = make_result(
         375,
         "🌟🌟⬛🦑🏮⬛🐟",
+        current_game_number()
     )
 
     await db.log_result(4652, "FireBjorne", result)
@@ -61,11 +64,13 @@ async def test_user_cannot_submit_twice_on_the_same_day(db: DatabaseHandler):
     first_result = make_result(
         375,
         "🌟🌟⬛🦑🏮⬛🐟",
+        current_game_number()
     )
 
     second_result = make_result(
         275,
         "🌟⬛⬛🦑🏮⬛🐟",
+        current_game_number()
     )
 
     await db.log_result(4652, "FireBjorne", first_result)
@@ -82,10 +87,12 @@ async def test_different_users_can_submit_results(db: DatabaseHandler):
     firebjorne = make_result(
         375,
         "🌟🌟⬛🦑🏮⬛🐟",
+        current_game_number()
     )
     paradigm = make_result(
         275,
         "🌟⬛⬛🦑🏮⬛🐟",
+        current_game_number()
     )
 
     await db.log_result(4652, "FireBjorne", firebjorne)
@@ -106,8 +113,8 @@ async def test_scoreboard_returns_results_ordered_by_score(db: DatabaseHandler):
         "🌟⬛⬛🦑🏮⬛🐟",
     )
 
-    await db.log_result(4652, "FireBjorne", firebjorne)
-    await db.log_result(4651, "Paradigm", paradigm)
+    await db.log_result(4652, "FireBjorne", firebjorne, force=True)
+    await db.log_result(4651, "Paradigm", paradigm, force=True)
 
     scoreboard = list(await db.scoreboard())
 
@@ -132,8 +139,8 @@ async def test_scoreboard_orders_equal_scores_by_krillions(db: DatabaseHandler):
         "⬛⬛⬛⬛⬛⬛⬛",
     )
 
-    await db.log_result(4651, "Paradigm", result_without_krillion)
-    await db.log_result(4652, "FireBjorne", result_with_krillion)
+    await db.log_result(4651, "Paradigm", result_without_krillion, force=True)
+    await db.log_result(4652, "FireBjorne", result_with_krillion, force=True)
 
     scoreboard = list(await db.scoreboard())
 
@@ -169,7 +176,7 @@ async def test_scoreboard_count_limits_number_of_results(db: DatabaseHandler):
     ]
 
     for user_id, name, result in results:
-        await db.log_result(user_id, name, result)
+        await db.log_result(user_id, name, result, force=True)
 
     scoreboard = list(await db.scoreboard(count=2))
 
@@ -191,53 +198,8 @@ async def test_best_game_returns_highest_scoring_game(db: DatabaseHandler):
         game_number=47,
     )
 
-    await db.log_result(4652, "FireBjorne", worse)
-
-    # A user can only submit once per day, so use a different user for
-    # the second result and insert it directly into the database for
-    # this best_game test.
-    #
-    # Instead, recreate the test using the database connection directly.
-    import aiosqlite
-
-    async with aiosqlite.connect(db.db_file_location) as connection:
-        await connection.execute(
-            """
-            INSERT INTO krillionResults (
-                guild_id,
-                author_id,
-                author_name,
-                game_number,
-                score,
-                krillions,
-                deep_cuts,
-                rares,
-                schoolers,
-                clevers,
-                planktons,
-                blanks,
-                result_order,
-                created_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-            """,
-            (
-                db.guild_id,
-                4652,
-                "FireBjorne",
-                better.game_number,
-                better.score,
-                better.krillions,
-                better.deep_cuts,
-                better.rares,
-                better.schoolers,
-                better.clevers,
-                better.planktons,
-                better.empties,
-                "".join(c.category[0] for c in better.answers),
-            ),
-        )
-        await connection.commit()
+    await db.log_result(4652, "FireBjorne", worse, force=True)
+    await db.log_result(4652, "FireBjorne", better, force=True)
 
     best = await db.best_game(4652)
 
@@ -260,56 +222,16 @@ async def test_aggregate_stats(db: DatabaseHandler):
     first = make_result(
         375,
         "🌟🌟⬛🦑🏮⬛🐟",
+        46
     )
     second = make_result(
         275,
         "🌟⬛⬛🦑🏮⬛🐟",
+        47
     )
 
-    await db.log_result(4652, "FireBjorne", first)
-
-    # log_result intentionally prevents the same user submitting twice
-    # on the same day. Insert the second historical result directly.
-    import aiosqlite
-
-    async with aiosqlite.connect(db.db_file_location) as connection:
-        await connection.execute(
-            """
-            INSERT INTO krillionResults (
-                guild_id,
-                author_id,
-                author_name,
-                game_number,
-                score,
-                krillions,
-                deep_cuts,
-                rares,
-                schoolers,
-                clevers,
-                planktons,
-                blanks,
-                result_order,
-                created_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-            """,
-            (
-                db.guild_id,
-                4652,
-                "FireBjorne",
-                second.game_number,
-                second.score,
-                second.krillions,
-                second.deep_cuts,
-                second.rares,
-                second.schoolers,
-                second.clevers,
-                second.planktons,
-                second.empties,
-                "".join(c.category[0] for c in second.answers),
-            ),
-        )
-        await connection.commit()
+    await db.log_result(4652, "FireBjorne", first, force=True)
+    await db.log_result(4652, "FireBjorne", second, force=True)
 
     stats = await db.aggregate_stats(4652)
 
@@ -337,6 +259,7 @@ async def test_wipe_all_removes_all_results(db: DatabaseHandler):
     result = make_result(
         375,
         "🌟🌟⬛🦑🏮⬛🐟",
+        current_game_number()
     )
 
     await db.log_result(4652, "FireBjorne", result)
@@ -426,6 +349,7 @@ async def test_remove_guild_removes_guild_results(db: DatabaseHandler):
     result = make_result(
         375,
         "🌟🌟⬛🦑🏮⬛🐟",
+        current_game_number()
     )
 
     await db.log_result(4652, "FireBjorne", result)
@@ -446,6 +370,7 @@ async def test_remove_guild_removes_channel_and_results(db: DatabaseHandler):
     result = make_result(
         375,
         "🌟🌟⬛🦑🏮⬛🐟",
+        current_game_number()
     )
 
     await db.log_result(4652, "FireBjorne", result)
