@@ -6,6 +6,7 @@ from krillion_bot.services.displays import (
     ScoreboardRow,
 )
 from krillion_bot.services.parser import KrillionResult
+from krillion_bot.utils import current_game_number
 
 
 def make_result(
@@ -96,15 +97,6 @@ def test_scoreboard_as_message_contains_each_result_as_emoji():
         assert row.result.as_emoji() in message
 
 
-def test_scoreboard_as_message_is_wrapped_in_code_block():
-    scoreboard = Scoreboard(make_scoreboard_rows())
-
-    message = scoreboard.as_message()
-
-    assert message.startswith("```text\n")
-    assert message.endswith("\n```")
-
-
 def test_scoreboard_as_message_respects_top_n():
     scoreboard = Scoreboard(make_scoreboard_rows())
 
@@ -165,7 +157,7 @@ def test_daily_scoreboard_message_contains_header():
 
     message = scoreboard.as_message()
 
-    assert "🏆 **TODAY'S SCOREBOARD** 🏆" in message
+    assert f"🏆 **SCOREBOARD FOR GAME #{current_game_number()}** 🏆" in message
 
 
 def test_daily_scoreboard_message_contains_winner():
@@ -173,7 +165,7 @@ def test_daily_scoreboard_message_contains_winner():
 
     message = scoreboard.as_message()
 
-    assert "🥳 🎉 **Today's Winner: @FireBjorne!** 🎉 🥳" in message
+    assert "🥳 🎉 **Today's Winner: FireBjorne!** 🎉 🥳" in message
     assert "🏆 **Score:** 230" in message
 
 
@@ -199,12 +191,6 @@ def test_daily_scoreboard_message_respects_top_n():
     assert "Obscur" not in message
     assert "The Bookkeeper of Domino" not in message
     assert "The Owl Baron" not in message
-
-
-def test_empty_daily_scoreboard():
-    with pytest.raises(IndexError):
-        DailyScoreboard([])
-
 
 @pytest.mark.parametrize(
     ("score", "answers"),

@@ -4,6 +4,7 @@ import re
 from textwrap import dedent
 
 T = TypeVar('T')
+DatabaseRowType = tuple[int, int, int, str, int, int, int, int, int, int, int, int, int, str, str]
 
 @dataclass(frozen=True)
 class KrillionCategory:
@@ -137,7 +138,7 @@ class KrillionResult:
             raise ValueError('Tried to create KrillionResult from invalid string. Check formatting and make sure to paste exactly the result of selecting "Copy Results".')
             
     @staticmethod
-    def from_database_row(row: tuple[int, int, int, str, int, int, int, int, int, int, int, int, int, str, str]):
+    def from_database_row(row: DatabaseRowType):
         _, _, _, _, game_number, score, _, _, _, _, _, _, _, answers_str, _, = row
         return KrillionResult._parse_by_lookup(game_number, score, KrillionResult.CATEGORY_LOOKUP_CHAR, answers_str)
                 

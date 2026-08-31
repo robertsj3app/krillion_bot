@@ -1,11 +1,16 @@
 import os
 
 import discord
-from discord import Message
+from discord import Message, app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 
-from krillion_bot.services.database import DatabaseHandler
+from krillion_bot.services.database import DatabaseHandler, DoubleSubmissionException
+from krillion_bot.services.parser import KrillionResult
+from krillion_bot.services.displays import DailyScoreboard
+from krillion_bot.utils import current_game_number
+
+from typing import Optional
 
 load_dotenv()
 
@@ -19,12 +24,10 @@ bot = commands.Bot(
     intents=intents,
 )
 
-
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user}")
     DatabaseHandler.initial_setup(r"C:\Users\100 Acre Wood\Documents\Coding\krillion_bot\test.db")
-
 
 @bot.event
 async def on_message(message: Message):
@@ -32,19 +35,20 @@ async def on_message(message: Message):
     if message.author == bot.user:
         return
 
-    # --------------------------------
-    # Handle EVERY incoming message
-    # --------------------------------
-
-    # Eventually:
-    # await database.log_message(message)
-
-    # Eventually:
-    # await parse_message(message)
-
-    # --------------------------------
-    # Then let !commands be processed
-    # --------------------------------
+    if message.guild:
+        h = DatabaseHandler(message.guild.id)
+        if message.channel.id == await h.get_krillion_channel():
+            try:
+                result = KrillionResult.from_result_string(message.content)
+                print(f"Found valid Krillion result: {result}")
+                try:
+                    await h.log_result(message.author.id, message.author.mention, result)
+                    await message.add_reaction("✅")
+                except DoubleSubmissionException as e:
+                    await message.reply(str(e))
+                    await message.delete()
+            except:
+                pass
 
     await bot.process_commands(message)
 
@@ -59,16 +63,42 @@ async def on_guild_remove(guild: discord.Guild):
     await DatabaseHandler(guild.id).remove_guild()
 
 @bot.command()
+@commands.is_owner()
+async def sync_guild(ctx):
+    # Copies global commands to this specific server instantly
+    bot.tree.copy_global_to(guild=ctx.guild)
+    await bot.tree.sync(guild=ctx.guild)
+    await ctx.send("Synced to this guild instantly!")
+
+@bot.tree.command(name="set_krillion_channel", description="Set the channel for MechaShrimp to monitor for posted responses and send scoreboards to.")
 @commands.has_permissions(manage_channels=True) # Restrict this command to admins/mods
-async def set_krillion_channel(ctx: commands.Context, channel: discord.TextChannel):
-    if ctx.guild:
-        await DatabaseHandler(ctx.guild.id).set_krillion_channel(channel.id)
-        await ctx.send(f"🎯 Target channel successfully set to {channel.mention}")
+async def set_krillion_channel(interaction: discord.Interaction, channel: discord.TextChannel):
+    if interaction.guild:
+        await DatabaseHandler(interaction.guild.id).set_krillion_channel(channel.id)
+        await interaction.response.send_message(f"🎯 Target channel successfully set to {channel.mention}")
 
+@bot.tree.command(name="reset_scores", description="Wipe the slate clean! Clears all recorded results for this server.")
+@commands.has_permissions(manage_channels=True) # Restrict this command to admins/mods
+async def reset_scores(interaction: discord.Interaction):
+    if interaction.guild:
+        await DatabaseHandler(interaction.guild.id).wipe()
+        await interaction.response.send_message(f"Scores cleared!")
 
-# @bot.command()
-# async def stats(ctx):
-#     await ctx.send("Stats go here.")
+@bot.tree.command(name="daily_scoreboard", description="Show today's scoreboard! Positions may change as new results are added.")
+async def daily_scoreboard(interaction: discord.Interaction):
+    if interaction.guild:
+        data = [tuple(d) for d in await DatabaseHandler(interaction.guild.id).scoreboard('daily')]
+        print(data)
+        s = DailyScoreboard.from_database_result(data)
+        await interaction.response.send_message(s.as_message(final_result=False))
 
+@bot.tree.command(name="past_scoreboard", description="Show a scoreboard for a past game.")
+async def past_scoreboard(interaction: discord.Interaction, game_number: int):
+    if game_number > current_game_number():
+        await interaction.response.send_message("That game number hasn't happened yet!")
+    if interaction.guild:
+        data = [tuple(d) for d in await DatabaseHandler(interaction.guild.id).scoreboard(game_number)]
+        s = DailyScoreboard.from_database_result(data)
+        await interaction.response.send_message(s.as_message(final_result=True if game_number < current_game_number() else False))
 
 bot.run(TOKEN)
