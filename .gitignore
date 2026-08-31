@@ -4,3 +4,4 @@
 *.db
 .pytest_cache
 __pycache__
+docs/generated

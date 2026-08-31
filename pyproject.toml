@@ -19,7 +19,9 @@ dependencies = [
 [project.optional_dependencies]
 dev = [
     'pytest',
-    'pytest-asyncio'
+    'pytest-asyncio',
+    'pytest-cov',
+    'pdoc'
 ]
 
 [tool.setuptools.packages.find]

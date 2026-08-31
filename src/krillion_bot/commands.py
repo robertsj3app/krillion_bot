@@ -3,6 +3,8 @@ import discord
 from krillion_bot.services.database import DatabaseHandler
 from krillion_bot.services.displays import DailyScoreboard, OverallScoreboard, UserStats
 from krillion_bot.utils import current_game_number
+from krillion_bot.utils.time import format_datetime_for_discord
+from datetime import datetime
 from typing import Optional
 
 def register_commands(bot: commands.Bot):
@@ -32,7 +34,9 @@ def register_commands(bot: commands.Bot):
     async def reset_scores(interaction: discord.Interaction):
         if interaction.guild:
             await DatabaseHandler(interaction.guild.id).wipe()
-            await interaction.response.send_message(f"Scores cleared!")
+            await interaction.response.send_message(f"**Attention:** Scoring history has been reset for {interaction.guild.name} at {format_datetime_for_discord(datetime.now())}")
+            message = await interaction.original_response()
+            await message.pin()
 
     # @bot.tree.command(name="daily_scoreboard", description="Show today's scoreboard. Positions may change as new results are added.")
     # async def daily_scoreboard(interaction: discord.Interaction):

@@ -52,8 +52,8 @@ def test_parse_answers():
 
 def test_result_is_valid_when_score_matches_answers():
     result = make_result(
-        375,
-        "🌟🌟⬛🦑🏮⬛🐟",
+        160,
+        "🫧🐟🦑🫧🐟🫧🫧",
     )
 
     assert result.valid is True
@@ -111,8 +111,8 @@ def test_category_counts_for_all_categories():
     ("unicode", "expected_category", "expected_score"),
     [
         (r"\U0001f31f", "One in a Krillion", 100),
-        (r"\U0001f991", "Deep Cut", 85),
-        (r"\U0001f3ee", "Rare", 60),
+        (r"\U0001f3ee", "Deep Cut", 85),
+        (r"\U0001f991", "Rare", 60),
         (r"\U0001f41f", "Schooler", 30),
         (r"\U0001f921", "Too Clever", 15),
         (r"\U0001fae7", "Plankton", 10),
@@ -182,7 +182,7 @@ def test_from_database_row_reconstructs_result():
         result.clevers,
         result.planktons,
         result.empties,
-        "OONDRNS",
+        "OONRDNS",
         "2026-08-30 12:00:00",
     )
 
@@ -205,9 +205,9 @@ def test_from_database_row_reconstructs_result():
     [
         ("🌟🌟⬛🦑🏮⬛🐟", 375),
         ("🌟⬛⬛🦑🏮⬛🐟", 275),
-        ("🫧⬛🐟🦑🐟🫧🦑", 250),
-        ("⬛🫧⬛🦑🐟🐟🦑", 240),
-        ("🐟🦑🐟🫧🦑🫧🐟", 280),
+        ("🫧⬛🐟🦑🐟🫧🦑", 200),
+        ("⬛🫧⬛🦑🐟🐟🦑", 190),
+        ("🐟🦑🐟🫧🦑🫧🐟", 230),
     ],
 )
 def test_valid_results_from_example_results(answers, score):

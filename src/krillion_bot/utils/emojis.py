@@ -4,8 +4,8 @@ from typing import Self
 class Emojis(StrEnum):
 
     KRILLION = K = "🌟"
-    DEEP_CUT = D = "🦑"
-    RARE     = R = "🏮"
+    DEEP_CUT = D = "🏮"
+    RARE     = R = "🦑"
     SCHOOLER = S = "🐟"
     CLEVER   = C = "🤡"
     PLANKTON = P = "🫧"

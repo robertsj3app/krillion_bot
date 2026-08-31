@@ -7,17 +7,49 @@ from datetime import datetime
 
 @dataclass
 class ScoreboardRow:
+    '''
+    A user's entry on a Scoreboard. Maps a username string to a result.
+    
+    Attributes:
+        user (str):
+            The display name (or ideally mention string) for the user
+        result (KrillionResult):
+            The game result to score that user on.
+    '''
 
     user: str
     result: KrillionResult
 
     @staticmethod
     def from_database_row(row: DatabaseRowType) -> 'ScoreboardRow':
+        '''
+        Instantiate a ScoreboardRow from a tuple matching the format returned
+        by a database query.
+        
+        Args:
+            row (DatabaseRowType):
+                The database game row query to instantiate from
+        
+        Returns:
+            A new ScoreboardRow for the provided database entry
+        '''
         return ScoreboardRow(row[3], KrillionResult.from_database_row(row))
 
 
 @dataclass
 class Scoreboard:
+    '''
+    Dataclass to track ordered results for a set of users. Allows rows to
+    be ordered by variable criteria from the row's KrillionResult.
+    
+    Attributes:
+        winner (str):
+            The display name (or ideally mention string) of the top-scoring user
+        entries (list[ScoreboardRow]):
+            The constituent user->result mappings that make up the Scoreboard
+        sort_by (str):
+            The metric to sort entries by to determine the winner. Defaults to total points.
+    '''
 
     winner: str = field(init=False)
     entries: list[ScoreboardRow]
@@ -28,6 +60,16 @@ class Scoreboard:
         self.winner = self.entries[0].user if self.entries else ""
 
     def as_message(self: Self, top_n: Optional[int] = None) -> str:
+        '''
+        Return this Scoreboard formatted as a Discord message.
+        
+        Args:
+            top_n (Optional[int]):
+                If set, limit the scoreboard to the top N scorers.
+                
+        Returns
+            A pretty-printed string with emojis and visuals to display in Discord
+        '''
         if top_n is None:
             top_n = len(self.entries)
         medals = ["🥇", "🥈", "🥉"]
@@ -44,12 +86,27 @@ class Scoreboard:
 
     @classmethod
     def from_database_result(cls, result: list[DatabaseRowType]):
+        '''
+        Instantiate a Scoreboard from a set of database results.
+        
+        Args:
+            result (list[DatabaseRowType]):
+                The list of database-schema-formatted tuples to build the
+                constituent ScoreboardRows from
+        '''
         return cls([ScoreboardRow.from_database_row(r) for r in result])
 
 
 @dataclass
 class DailyScoreboard(Scoreboard):
-
+    '''
+    Extends the base Scoreboard with additional formatting fluff to indicate
+    that this Scoreboard is for a daily game result.
+    
+    Args:
+        game_number (int):
+            The game number that this Scoreboard is representing.
+    '''
     game_number: int = field(init=False)
 
     def __post_init__(self: Self):
@@ -61,6 +118,20 @@ class DailyScoreboard(Scoreboard):
         self.game_number = self.entries[0].result.game_number if self.entries else current_game_number()
 
     def as_message(self: Self, top_n: Optional[int] = None, final_result: bool = True) -> str:
+        '''
+        Return this Scoreboard formatted as a Discord message.
+        
+        Args:
+            top_n (Optional[int]):
+                If set, limit the scoreboard to the top N scorers.
+            final_result (bool):
+                If True, change formatting to declare a definitive winner,
+                otherwise declare the top player as the leader and indicate
+                that scoring is still open.
+                
+        Returns
+            A pretty-printed string with emojis and visuals to display in Discord
+        '''
         winner = self.entries[0] if self.entries else None
 
         scoreboard = super().as_message(top_n)
@@ -92,6 +163,11 @@ class DailyScoreboard(Scoreboard):
 
 @dataclass
 class OverallScoreboard(Scoreboard):
+    '''
+    Extends Scoreboard to indicate that rankings here are global lifetime rankings,
+    and display a second set of rankings using a sub-Scoreboard based on total number
+    of One-in-a-Krillion results.
+    '''
     
     def as_message(self: Self, top_n: int | None = None) -> str:
         winner = self.entries[0] if self.entries else None
@@ -135,6 +211,12 @@ class OverallScoreboard(Scoreboard):
 
 @dataclass
 class UserStats:
+    '''
+    Dataclass for declaring lifetime stats for a user.
+    
+    Attributes:
+        
+    '''
 
     user_name: str
     total_score: int
