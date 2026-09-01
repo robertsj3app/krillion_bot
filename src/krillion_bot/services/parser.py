@@ -9,6 +9,35 @@ DatabaseRowType = tuple[int, int, int, str, int, int, int, int, int, int, int, i
 
 @dataclass
 class KrillionResult:
+    '''
+    Parsed container for a single Krillion.io result.
+    
+    The game exports a short formatted block containing the game number, total score, and
+    seven answer emoji values. This dataclass translates that block into a normalized object
+    that can be validated, counted, and rendered back to Discord-friendly emoji text.
+    
+    Attributes:
+        game_number (int):
+            The numbered daily dive that the result belongs to.
+        score (int):
+            The total score printed by the game for this answer set.
+        answers (Sequence[KrillionCategory]):
+            The seven answer categories that make up the result.
+        krillions (int):
+            Number of One in a Krillion answers in the result.
+        deep_cuts (int):
+            Number of Deep Cut answers in the result.
+        rares (int):
+            Number of Rare answers in the result.
+        schoolers (int):
+            Number of Schooler answers in the result.
+        clevers (int):
+            Number of Too Clever answers in the result.
+        planktons (int):
+            Number of Plankton answers in the result.
+        empties (int):
+            Number of empty/No Response answers in the result.
+    '''
 
     game_number: int
     score: int
@@ -32,6 +61,12 @@ class KrillionResult:
     }
 
     def __post_init__(self: Self):
+        '''
+        Count each answer category after initialization.
+        
+        Returns:
+            None
+        '''
         self.krillions = 0
         self.deep_cuts = 0
         self.rares = 0
@@ -57,14 +92,43 @@ class KrillionResult:
                     self.empties += 1
 
     def as_emoji(self: Self):
+        '''
+        Return the original answer sequence as a contiguous emoji string.
+        
+        Returns:
+            str:
+                The emoji representation of all answer categories in order.
+        '''
         return ''.join(a.as_emoji() for a in self.answers)
 
     @property
     def valid(self: Self) -> bool:
+        '''
+        Check whether the parsed answer values add up to the declared score.
+        
+        Returns:
+            bool:
+                True when the total score matches the answer-value sum, False otherwise.
+        '''
         return sum(a.score for a in self.answers) == self.score
 
     @staticmethod
     def from_result_string(result: str) -> 'KrillionResult':
+        '''
+        Parse a raw Krillion "Copy Results" block into a structured result object.
+        
+        Args:
+            result (str):
+                The pasted text copied directly from the Krillion result modal.
+        
+        Returns:
+            KrillionResult:
+                A result object built from the game number, score, and answer sequence.
+        
+        Raises:
+            ValueError:
+                If the content is not in the expected Krillion result format.
+        '''
         decoded = dedent(result.strip().encode('ascii', errors='backslashreplace').decode('ascii'))
         match = re.match(KrillionResult.FORMAT, decoded)
         if match:
@@ -75,5 +139,16 @@ class KrillionResult:
     
     @staticmethod
     def from_database_row(row: DatabaseRowType):
+        '''
+        Reconstruct a KrillionResult from a row stored by the database handler.
+        
+        Args:
+            row (DatabaseRowType):
+                A tuple matching the schema of a krillionResults database row.
+        
+        Returns:
+            KrillionResult:
+                A result object rebuilt from the serialized answer text.
+        '''
         _, _, _, _, game_number, score, _, _, _, _, _, _, _, answers_str, _, = row
         return KrillionResult(game_number, score, [AnswerCategories.from_char(c).value for c in answers_str])

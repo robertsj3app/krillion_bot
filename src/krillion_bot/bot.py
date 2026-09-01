@@ -1,3 +1,5 @@
+"""Bootstraps the Krillion bot Discord application."""
+
 import os
 
 import discord

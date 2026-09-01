@@ -56,6 +56,12 @@ class Scoreboard:
     sort_by: str = field(default='score')
 
     def __post_init__(self: Self):
+        '''
+        Sort entries by the selected comparison metric and set the current leader.
+        
+        Returns:
+            None
+        '''
         self.entries = sorted(self.entries, key=lambda e: getattr(e.result, self.sort_by), reverse=True)
         self.winner = self.entries[0].user if self.entries else ""
 
@@ -110,6 +116,16 @@ class DailyScoreboard(Scoreboard):
     game_number: int = field(init=False)
 
     def __post_init__(self: Self):
+        '''
+        Validate all daily entries share the same game before publishing the leaderboard.
+        
+        Returns:
+            None
+        
+        Raises:
+            ValueError:
+                If entries come from multiple different game numbers.
+        '''
         super().__post_init__()
         if len(set(e.result.game_number for e in self.entries)) > 1:
             raise ValueError('Cannot create daily scoreboard for entries from different games!')
@@ -170,6 +186,17 @@ class OverallScoreboard(Scoreboard):
     '''
     
     def as_message(self: Self, top_n: int | None = None) -> str:
+        '''
+        Render both the overall points leaderboard and the lifetime Krillion leaderboards.
+        
+        Args:
+            top_n (int | None):
+                Maximum number of entries to include in each leaderboard segment.
+        
+        Returns:
+            str:
+                A multi-section Discord message covering total points and total Krillions.
+        '''
         winner = self.entries[0] if self.entries else None
         scoreboard_msg = super().as_message(top_n)
         
@@ -212,10 +239,35 @@ class OverallScoreboard(Scoreboard):
 @dataclass
 class UserStats:
     '''
-    Dataclass for declaring lifetime stats for a user.
+    Lifetime scoring summary for a single Discord user.
+    
+    This object aggregates a player's total lifetime score and category totals, and also keeps
+    track of their best and most recent game so the bot can explain their performance in a clean
+    summary message.
     
     Attributes:
-        
+        user_name (str):
+            The display name associated with this user's results in this server.
+        total_score (int):
+            The sum of all points across this user's logged games.
+        total_krillions (int):
+            Total number of One in a Krillion results logged across all games.
+        total_deep_cuts (int):
+            Total number of Deep Cut results logged across all games.
+        total_rares (int):
+            Total number of Rare results logged across all games.
+        total_schoolers (int):
+            Total number of Schooler results logged across all games.
+        total_clevers (int):
+            Total number of Too Clever results logged across all games.
+        total_planktons (int):
+            Total number of Plankton results logged across all games.
+        total_blanks (int):
+            Total number of blanks logged across all games.
+        best_game (KrillionResult):
+            The user's highest-scoring result in this server.
+        latest_game (KrillionResult):
+            The user's most recently logged result in this server.
     '''
 
     user_name: str
@@ -231,6 +283,12 @@ class UserStats:
     latest_game: KrillionResult
 
     def __post_init__(self):
+        '''
+        Build a category-to-total lookup used for readable stats output.
+        
+        Returns:
+            None
+        '''
         self.EMOJI_MAPPING = {
             Emojis.K: self.total_krillions,
             Emojis.D: self.total_deep_cuts,
@@ -243,6 +301,25 @@ class UserStats:
 
     @classmethod
     def from_database_result(cls, agg_result: DatabaseRowType, best_game_result: DatabaseRowType, latest_game_result: DatabaseRowType) -> 'UserStats':
+        '''
+        Create a UserStats object from the aggregate row and the user's best/latest games.
+        
+        Args:
+            agg_result (DatabaseRowType):
+                The lifetime aggregate row returned by `DatabaseHandler.aggregate_stats()`.
+            best_game_result (DatabaseRowType):
+                The user's best game row from the database.
+            latest_game_result (DatabaseRowType):
+                The user's most recent game row from the database.
+        
+        Returns:
+            UserStats:
+                The lifetime summary for the selected user.
+        
+        Raises:
+            ValueError:
+                If the provided rows do not all belong to the same user.
+        '''
         _, _, _, _, _, total_score, total_krillions, total_deep_cuts, total_rares, total_schoolers, total_clevers, total_planktons, total_blanks, _, _ = agg_result
 
         user_name_1 = agg_result[3]
@@ -266,6 +343,14 @@ class UserStats:
         )
 
     def as_message(self: Self):
+        '''
+        Render the user's lifetime stats as a Discord-ready summary.
+        
+        Returns:
+            str:
+                A multi-line message listing the latest game, best game, lifetime score,
+                and category totals.
+        '''
         return (
             f"**STATS FOR USER {self.user_name}**\n"
             "\n"
