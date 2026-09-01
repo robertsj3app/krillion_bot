@@ -303,13 +303,14 @@ class DatabaseHandler:
             params = ()
 
             if style == "daily":
-                where_clause = "WHERE game_number = ?"
-                params = (current_game_number(),)
+                where_clause = "WHERE game_number = ? AND guild_id = ?"
+                params = (current_game_number(), self.guild_id)
             elif isinstance(style, int):
-                where_clause = "WHERE game_number = ?"
-                params = (style,)
+                where_clause = "WHERE game_number = ? AND guild_id = ?"
+                params = (style, self.guild_id)
             else:
-                where_clause = ""
+                where_clause = "WHERE guild_id = ?"
+                params = (self.guild_id,)
 
             cursor = await db.execute(
                 f"""
@@ -348,11 +349,11 @@ class DatabaseHandler:
             cursor = await db.execute(
                 """
                 SELECT * FROM krillionResults
-                WHERE author_id = ?
+                WHERE author_id = ? AND guild_id = ?
                 ORDER BY score DESC, krillions DESC, deep_cuts DESC, rares DESC, schoolers DESC, clevers DESC, planktons DESC, blanks DESC
                 LIMIT 1
                 """,
-                (user_id,)
+                (user_id, self.guild_id)
             )
             return await cursor.fetchone()
 
@@ -371,11 +372,11 @@ class DatabaseHandler:
                 cursor = await db.execute(
                     """
                     SELECT * FROM krillionResults
-                    WHERE author_id = ?
+                    WHERE author_id = ? AND guild_id = ?
                     ORDER BY game_number DESC
                     LIMIT 1
                     """,
-                    (user_id,)
+                    (user_id, self.guild_id)
                 )
                 return await cursor.fetchone()
 
@@ -411,9 +412,9 @@ class DatabaseHandler:
                     MAX(result_order),
                     MAX(created_at)
                 FROM krillionResults
-                WHERE author_id = ?
+                WHERE author_id = ? AND guild_id = ?
                 GROUP BY guild_id, author_id, author_name
                 """,
-                (user_id,)
+                (user_id, self.guild_id)
             )
             return await cursor.fetchone()
