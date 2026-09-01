@@ -41,12 +41,15 @@ def register_events(bot: commands.Bot):
             if message.channel.id == await h.get_krillion_channel():
                 try:
                     result = KrillionResult.from_result_string(message.content)
-                    try:
-                        await h.log_result(message.author.id, message.author.mention, result)
-                        await message.add_reaction("✅")
-                    except DoubleSubmissionException as e:
-                        await message.reply(str(e))
-                        await message.delete()
+                    if result.valid:
+                        try:
+                            await h.log_result(message.author.id, message.author.mention, result)
+                            await message.add_reaction("✅")
+                        except DoubleSubmissionException as e:
+                            await message.reply(str(e))
+                            await message.delete()
+                    else:
+                        await message.add_reaction("❌")
                 except:
                     pass
 
