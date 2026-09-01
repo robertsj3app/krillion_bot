@@ -1,4 +1,5 @@
 # MechaShrimp
+![Logo](./assets/logo.png)
 
 MechaShrimp is a Discord companion for running a server-wide Krillion.io score tracker. It watches a configured channel for posted result blocks, validates each submission, prevents duplicate entries for the same user on the same game, and turns the saved results into daily and lifetime leaderboards.
 
