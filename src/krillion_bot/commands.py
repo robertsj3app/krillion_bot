@@ -75,15 +75,8 @@ def register_commands(bot: commands.Bot):
             message = await interaction.original_response()
             await message.pin()
 
-    # @bot.tree.command(name="daily_scoreboard", description="Show today's scoreboard. Positions may change as new results are added.")
-    # async def daily_scoreboard(interaction: discord.Interaction):
-    #     if interaction.guild:
-    #         data = [tuple(d) for d in await DatabaseHandler(interaction.guild.id).scoreboard('daily')]
-    #         s = DailyScoreboard.from_database_result(data)
-    #         await interaction.response.send_message(s.as_message(final_result=False))
-
     @bot.tree.command(name="scoreboard", description="Show a scoreboard for a past game.")
-    async def scoreboard(interaction: discord.Interaction, game_number: Optional[int]):
+    async def scoreboard(interaction: discord.Interaction, game_number: Optional[int], ephemeral: bool = True):
         '''
         Show the leaderboard for a selected game number.
 
@@ -102,10 +95,10 @@ def register_commands(bot: commands.Bot):
         if interaction.guild:
             data = [tuple(d) for d in await DatabaseHandler(interaction.guild.id).scoreboard(game_number)]
             s = DailyScoreboard.from_database_result(data)
-            await interaction.response.send_message(s.as_message(final_result=True if game_number < current_game_number() else False))
+            await interaction.response.send_message(s.as_message(final_result=True if game_number < current_game_number() else False), ephemeral=ephemeral)
 
     @bot.tree.command(name="overall_scoreboard", description="Show the overall rankings for this server, both for total points and number of krillions.")
-    async def overall_scoreboard(interaction: discord.Interaction):
+    async def overall_scoreboard(interaction: discord.Interaction, ephemeral: bool = True):
         '''
         Show the lifetime ranking for the server across points and Krillion totals.
 
@@ -122,10 +115,10 @@ def register_commands(bot: commands.Bot):
                     aggregate_results.append(tuple(stats))
              
             s = OverallScoreboard.from_database_result(aggregate_results)
-            await interaction.response.send_message(s.as_message())
+            await interaction.response.send_message(s.as_message(), ephemeral=ephemeral)
 
     @bot.tree.command(name="user_stats", description="Show the lifetime stats for a user.")
-    async def user_stats(interaction: discord.Interaction, user: discord.User):
+    async def user_stats(interaction: discord.Interaction, user: discord.User, ephemeral: bool = True):
         '''
         Display the lifetime stats for an individual user.
 
@@ -142,6 +135,6 @@ def register_commands(bot: commands.Bot):
             latest_game = await h.latest_game(user.id)
             if stats and best_game and latest_game:
                 s = UserStats.from_database_result(tuple(stats), tuple(best_game), tuple(latest_game))
-                await interaction.response.send_message(s.as_message())
+                await interaction.response.send_message(s.as_message(), ephemeral=ephemeral)
             else:
-                await interaction.response.send_message(f"❌ No results found for user {user.mention}")
+                await interaction.response.send_message(f"❌ No results found for user {user.mention}", ephemeral=ephemeral)
