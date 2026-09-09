@@ -1,9 +1,10 @@
 import sqlite3
 import aiosqlite
 import functools
-from typing import Self, Optional, Literal
+from typing import Self, Optional, Literal, Any, Iterator
 from krillion_bot.services.parser import KrillionResult
 from krillion_bot.utils import current_game_number
+from dataclasses import dataclass
 
 class DoubleSubmissionException(Exception):
     '''
@@ -11,6 +12,41 @@ class DoubleSubmissionException(Exception):
     fail on others. No additional behavior
     '''
     ...
+
+@dataclass(frozen=True)
+class KrillionResultRecord:
+    """A stored row from the ``krillionResults`` table."""
+
+    id: int
+    guild_id: int
+    author_id: int
+    author_name: str
+    game_number: int
+    score: int
+    krillions: int
+    deep_cuts: int
+    rares: int
+    schoolers: int
+    clevers: int
+    planktons: int
+    blanks: int
+    result_order: str
+    created_at: str
+
+    @classmethod
+    def from_row(cls, row: Any) -> Self:
+        return cls(*row)
+
+    def __iter__(self) -> Iterator[Any]:
+        return iter((
+            self.id, self.guild_id, self.author_id, self.author_name,
+            self.game_number, self.score, self.krillions, self.deep_cuts,
+            self.rares, self.schoolers, self.clevers, self.planktons,
+            self.blanks, self.result_order, self.created_at,
+        ))
+
+    def __getitem__(self, index: int) -> Any:
+        return tuple(self)[index]
 
 class DatabaseHandler:
     '''
@@ -143,7 +179,7 @@ class DatabaseHandler:
             await db.execute("DELETE FROM krillionResults;")
             await db.commit()
 
-    async def check_user_submitted_game(self: Self, author_id: int, game_number: int):
+    async def check_user_submitted_game(self: Self, author_id: int, game_number: int) -> bool:
         '''
         Check whether the selected user has submitted a Krillion result for the provided
         game number. Note that since the `DatabaseHandler` is keyed to a specific server, 
@@ -270,7 +306,7 @@ class DatabaseHandler:
         self: Self,
         style: Literal["daily", "all_time"] | int = "all_time",
         count: Optional[int] = None,
-    ):
+    ) -> list[KrillionResultRecord]:
         '''
         Returns the data needed to populate a scoreboard for this handler's server as an Iterable of sqlite3 Rows.
         
@@ -329,12 +365,15 @@ class DatabaseHandler:
                 params,
             )
 
+            
             if count is not None:
-                return await cursor.fetchmany(count)
+                rows = await cursor.fetchmany(count)
+            else:
+                rows = await cursor.fetchall()
 
-            return await cursor.fetchall()
+            return [KrillionResultRecord.from_row(r) for r in rows]
 
-    async def best_game(self: Self, user_id: int):
+    async def best_game(self: Self, user_id: int) -> KrillionResultRecord | None:
         '''
         Returns the chosen user's highest scoring game.
         
@@ -355,9 +394,12 @@ class DatabaseHandler:
                 """,
                 (user_id, self.guild_id)
             )
-            return await cursor.fetchone()
+            row = await cursor.fetchone()
+            if row:
+                return KrillionResultRecord.from_row(row)
+            return None
 
-    async def latest_game(self: Self, user_id: int):
+    async def latest_game(self: Self, user_id: int) -> KrillionResultRecord | None:
             '''
             Returns the chosen user's most recent game.
             
@@ -378,7 +420,10 @@ class DatabaseHandler:
                     """,
                     (user_id, self.guild_id)
                 )
-                return await cursor.fetchone()
+                row = await cursor.fetchone()
+                if row:
+                    return KrillionResultRecord.from_row(row)
+                return None
 
     async def aggregate_stats(self: Self, user_id: int):
         '''
@@ -417,4 +462,7 @@ class DatabaseHandler:
                 """,
                 (user_id, self.guild_id)
             )
-            return await cursor.fetchone()
+            row = await cursor.fetchone()
+            if row:
+                return KrillionResultRecord.from_row(row)
+            return None

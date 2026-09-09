@@ -2,11 +2,13 @@ import pytest
 
 from krillion_bot.services.displays import (
     DailyScoreboard,
+    OverallScoreboard,
     Scoreboard,
     ScoreboardRow,
 )
+from krillion_bot.services.database import KrillionResultRecord
 from krillion_bot.services.parser import KrillionResult
-from krillion_bot.utils import current_game_number
+from krillion_bot.utils import AnswerCategories, current_game_number
 
 
 def make_result(
@@ -24,27 +26,60 @@ Krillion #{game_number} 🦐
     )
 
 
+def make_record(
+    score: int,
+    answers: str,
+    game_number: int = 46,
+    author_name: str = "Player",
+) -> KrillionResultRecord:
+    result = make_result(score, answers, game_number)
+    return KrillionResultRecord(
+        1,
+        123,
+        456,
+        author_name,
+        result.game_number,
+        result.score,
+        result.krillions,
+        result.deep_cuts,
+        result.rares,
+        result.schoolers,
+        result.clevers,
+        result.planktons,
+        result.empties,
+        "".join(answer.letter_code for answer in result.answers),
+        "",
+    )
+
+
+def record_as_emoji(record: KrillionResultRecord) -> str:
+    return "".join(
+        AnswerCategories.from_char(char).value.as_emoji()
+        for char in record.result_order
+    )
+
+
 def make_scoreboard_rows() -> list[ScoreboardRow]:
     return [
         ScoreboardRow(
             "The Owl Baron",
-            make_result(155, "🐟🤡🐟🐟🫧🫧🐟", current_game_number()),
+            make_record(155, "🐟🤡🐟🐟🫧🫧🐟", current_game_number()),
         ),
         ScoreboardRow(
             "The Raven Knight",
-            make_result(200, "🫧⬛🐟🦑🐟🫧🦑", current_game_number()),
+            make_record(200, "🫧⬛🐟🦑🐟🫧🦑", current_game_number()),
         ),
         ScoreboardRow(
             "Obscur",
-            make_result(190, "⬛🫧⬛🦑🐟🐟🦑", current_game_number()),
+            make_record(190, "⬛🫧⬛🦑🐟🐟🦑", current_game_number()),
         ),
         ScoreboardRow(
             "FireBjorne",
-            make_result(230, "🐟🦑🐟🫧🦑🫧🐟", current_game_number()),
+            make_record(230, "🐟🦑🐟🫧🦑🫧🐟", current_game_number()),
         ),
         ScoreboardRow(
             "The Bookkeeper of Domino",
-            make_result(180, "🫧🦑🫧🐟🐟🫧🐟", current_game_number()),
+            make_record(180, "🫧🦑🫧🐟🐟🫧🐟", current_game_number()),
         ),
     ]
 
@@ -94,7 +129,7 @@ def test_scoreboard_as_message_contains_each_result_as_emoji():
     message = scoreboard.as_message()
 
     for row in scoreboard.entries:
-        assert row.result.as_emoji() in message
+        assert record_as_emoji(row.result) in message
 
 
 def test_scoreboard_as_message_respects_top_n():
@@ -137,7 +172,7 @@ def test_daily_scoreboard_rejects_results_from_different_games():
     rows.append(
         ScoreboardRow(
             "Different Game",
-            make_result(
+            make_record(
                 250,
                 "🌟🌟⬛🦑🏮⬛🐟",
                 game_number=32,
@@ -203,10 +238,10 @@ def test_daily_scoreboard_message_respects_top_n():
     ],
 )
 def test_scoreboard_row_preserves_result(score, answers):
-    result = make_result(score, answers)
+    result = make_record(score, answers)
     row = ScoreboardRow("Player", result)
 
     assert row.user == "Player"
     assert row.result is result
     assert row.result.score == score
-    assert row.result.as_emoji() == answers
+    assert record_as_emoji(row.result) == answers

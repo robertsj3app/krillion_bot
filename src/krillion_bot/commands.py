@@ -100,7 +100,7 @@ def register_commands(bot: commands.Bot):
             await interaction.response.send_message("That game number hasn't happened yet!")
         
         if interaction.guild:
-            data = [tuple(d) for d in await DatabaseHandler(interaction.guild.id).scoreboard(game_number)]
+            data = await DatabaseHandler(interaction.guild.id).scoreboard(game_number)
             s = DailyScoreboard.from_database_result(data)
             await interaction.response.send_message(s.as_message(final_result=True if game_number < current_game_number() else False))
 
@@ -115,12 +115,7 @@ def register_commands(bot: commands.Bot):
         '''
         if interaction.guild:
             h = DatabaseHandler(interaction.guild.id)
-            aggregate_results = []
-            for u in interaction.guild.members:
-                stats = await h.aggregate_stats(u.id)
-                if stats:
-                    aggregate_results.append(tuple(stats))
-             
+            aggregate_results = [r for r in [await h.aggregate_stats(u.id) for u in interaction.guild.members] if r is not None]
             s = OverallScoreboard.from_database_result(aggregate_results)
             await interaction.response.send_message(s.as_message())
 
@@ -141,7 +136,7 @@ def register_commands(bot: commands.Bot):
             best_game = await h.best_game(user.id)
             latest_game = await h.latest_game(user.id)
             if stats and best_game and latest_game:
-                s = UserStats.from_database_result(tuple(stats), tuple(best_game), tuple(latest_game))
+                s = UserStats.from_database_result(stats, best_game, latest_game)
                 await interaction.response.send_message(s.as_message())
             else:
                 await interaction.response.send_message(f"❌ No results found for user {user.mention}")

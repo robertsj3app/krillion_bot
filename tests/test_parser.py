@@ -158,7 +158,7 @@ def test_parse_result_with_unknown_category_raises_value_error():
         )
 
 
-def test_from_database_row_reconstructs_result():
+def test_from_str_row_reconstructs_result():
     result = make_result(
         375,
         "🌟🌟⬛🦑🏮⬛🐟",
@@ -186,7 +186,7 @@ def test_from_database_row_reconstructs_result():
         "2026-08-30 12:00:00",
     )
 
-    reconstructed = KrillionResult.from_database_row(row)
+    reconstructed = KrillionResult.from_char_list(row[4], row[5], row[13])
 
     assert reconstructed.game_number == result.game_number
     assert reconstructed.score == result.score

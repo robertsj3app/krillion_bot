@@ -205,7 +205,7 @@ async def test_best_game_returns_highest_scoring_game(db: DatabaseHandler):
 
     assert best is not None
 
-    game_result = KrillionResult.from_database_row(tuple(best))
+    game_result = KrillionResult.from_char_list(best.game_number, best.score, best.result_order)
 
     assert game_result.game_number == 47
     assert game_result.score == 375

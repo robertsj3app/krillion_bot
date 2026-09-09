@@ -5,7 +5,7 @@ from textwrap import dedent
 from krillion_bot.utils import AnswerCategories, KrillionCategory
 
 T = TypeVar('T')
-DatabaseRowType = tuple[int, int, int, str, int, int, int, int, int, int, int, int, int, str, str]
+# DatabaseRowType = tuple[int, int, int, str, int, int, int, int, int, int, int, int, int, str, str]
 
 @dataclass
 class KrillionResult:
@@ -138,17 +138,20 @@ class KrillionResult:
             raise ValueError('Tried to create KrillionResult from invalid string. Check formatting and make sure to paste exactly the result of selecting "Copy Results".')
     
     @staticmethod
-    def from_database_row(row: DatabaseRowType):
+    def from_char_list(game_number: int, score: int, chars: str) -> 'KrillionResult':
         '''
-        Reconstruct a KrillionResult from a row stored by the database handler.
+        Reconstruct a KrillionResult from a character string.
         
         Args:
-            row (DatabaseRowType):
-                A tuple matching the schema of a krillionResults database row.
+            game_number (int):
+                The game number
+            score (int):
+                The game score
+            chars (str):
+                The character list to reconstruct
         
         Returns:
             KrillionResult:
                 A result object rebuilt from the serialized answer text.
         '''
-        _, _, _, _, game_number, score, _, _, _, _, _, _, _, answers_str, _, = row
-        return KrillionResult(game_number, score, [AnswerCategories.from_char(c).value for c in answers_str])
+        return KrillionResult(game_number, score, [AnswerCategories.from_char(c).value for c in chars])

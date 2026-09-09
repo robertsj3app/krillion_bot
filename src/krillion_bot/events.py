@@ -28,7 +28,7 @@ def register_events(bot: commands.Bot):
             h = DatabaseHandler(guild.id)
             krillion_channel_id = await h.get_krillion_channel()
             if krillion_channel_id:
-                data = [tuple(d) for d in await DatabaseHandler(guild.id).scoreboard(current_game_number()-1)]
+                data = await DatabaseHandler(guild.id).scoreboard(current_game_number()-1)
                 s = DailyScoreboard.from_database_result(data)
                 krillion_channel = bot.get_channel(krillion_channel_id)
                 if isinstance(krillion_channel, discord.TextChannel):

@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
-from krillion_bot.services.parser import KrillionResult, DatabaseRowType
+from krillion_bot.services.parser import KrillionResult
 from krillion_bot.utils.time import get_next_utc_4_boundary_from, format_datetime_for_discord
-from krillion_bot.utils import current_game_number, Emojis
+from krillion_bot.utils import current_game_number, Emojis, AnswerCategories
+from krillion_bot.services.database import KrillionResultRecord
 from typing import Self, Optional
 from datetime import datetime
 
@@ -18,10 +19,10 @@ class ScoreboardRow:
     '''
 
     user: str
-    result: KrillionResult
+    result: KrillionResultRecord
 
     @staticmethod
-    def from_database_row(row: DatabaseRowType) -> 'ScoreboardRow':
+    def from_database_row(row: KrillionResultRecord) -> 'ScoreboardRow':
         '''
         Instantiate a ScoreboardRow from a tuple matching the format returned
         by a database query.
@@ -33,7 +34,7 @@ class ScoreboardRow:
         Returns:
             A new ScoreboardRow for the provided database entry
         '''
-        return ScoreboardRow(row[3], KrillionResult.from_database_row(row))
+        return ScoreboardRow(row[3], row)
 
 
 @dataclass
@@ -84,14 +85,14 @@ class Scoreboard:
             f"{medals[i] if i < 3 else f'{i + 1}.'} "
             f"{element.user} - "
             f"{getattr(element.result, self.sort_by)} " +
-            (f"({element.result.as_emoji()})" if self.sort_by == 'score' else "")
+            (f"({''.join(AnswerCategories.from_char(c).value.as_emoji() for c in element.result.result_order)})" if self.sort_by == 'score' else "")
             for i, element in enumerate(self.entries[:top_n])
         ]
 
         return "\n".join(lines)
 
     @classmethod
-    def from_database_result(cls, result: list[DatabaseRowType]):
+    def from_database_result(cls, result: list[KrillionResultRecord]):
         '''
         Instantiate a Scoreboard from a set of database results.
         
@@ -300,16 +301,16 @@ class UserStats:
         }
 
     @classmethod
-    def from_database_result(cls, agg_result: DatabaseRowType, best_game_result: DatabaseRowType, latest_game_result: DatabaseRowType) -> 'UserStats':
+    def from_database_result(cls, agg_result: KrillionResultRecord, best_game_result: KrillionResultRecord, latest_game_result: KrillionResultRecord) -> 'UserStats':
         '''
         Create a UserStats object from the aggregate row and the user's best/latest games.
         
         Args:
-            agg_result (DatabaseRowType):
+            agg_result (KrillionResultRecord):
                 The lifetime aggregate row returned by `DatabaseHandler.aggregate_stats()`.
-            best_game_result (DatabaseRowType):
+            best_game_result (KrillionResultRecord):
                 The user's best game row from the database.
-            latest_game_result (DatabaseRowType):
+            latest_game_result (KrillionResultRecord):
                 The user's most recent game row from the database.
         
         Returns:
@@ -329,17 +330,17 @@ class UserStats:
         if user_name_1 != user_name_2 != user_name_3:
             raise ValueError('Cannot build user stats from results for different users!')
         return UserStats(
-            user_name_1, 
-            total_score, 
-            total_krillions, 
-            total_deep_cuts, 
-            total_rares, 
-            total_schoolers, 
-            total_clevers, 
-            total_planktons, 
-            total_blanks, 
-            KrillionResult.from_database_row(best_game_result),
-            KrillionResult.from_database_row(latest_game_result)
+            agg_result.author_name, 
+            agg_result.score, 
+            agg_result.krillions, 
+            agg_result.deep_cuts, 
+            agg_result.rares, 
+            agg_result.schoolers, 
+            agg_result.clevers, 
+            agg_result.planktons, 
+            agg_result.blanks, 
+            KrillionResult.from_char_list(best_game_result.game_number, best_game_result.score, best_game_result.result_order),# from_database_row(best_game_result),
+            KrillionResult.from_char_list(latest_game_result.game_number, latest_game_result.score, latest_game_result.result_order)# from_database_row(latest_game_result)
         )
 
     def as_message(self: Self):
