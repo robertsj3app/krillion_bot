@@ -32,7 +32,7 @@ def format_datetime_for_discord(dt: datetime):
     
     Returns:
         str:
-            A Discord timestamp snippet such as "<t:1700000000:t>".
+            A Discord timestamp snippet such as "\\<t:1700000000:t\\>".
     '''
     return f"<t:{int(dt.timestamp())}:t>"
 

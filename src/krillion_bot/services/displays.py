@@ -74,7 +74,7 @@ class Scoreboard:
             top_n (Optional[int]):
                 If set, limit the scoreboard to the top N scorers.
                 
-        Returns
+        Returns:
             A pretty-printed string with emojis and visuals to display in Discord
         '''
         if top_n is None:
@@ -152,7 +152,7 @@ class DailyScoreboard(Scoreboard):
                 otherwise declare the top player as the leader and indicate
                 that scoring is still open.
                 
-        Returns
+        Returns:
             A pretty-printed string with emojis and visuals to display in Discord
         '''
         winner = self.entries[0] if self.entries else None
@@ -203,8 +203,7 @@ class OverallScoreboard(Scoreboard):
                 Maximum number of entries to include in each leaderboard segment.
         
         Returns:
-            str:
-                A multi-section Discord message covering KrELO and total Krillions.
+            A multi-section Discord message covering KrELO and total Krillions.
         '''
         winner = self.entries[0] if self.entries else None
         scoreboard_msg = super().as_message(top_n)
@@ -323,8 +322,7 @@ class UserStats:
                 The user's most recent game row from the database.
         
         Returns:
-            UserStats:
-                The lifetime summary for the selected user.
+            The lifetime summary for the selected user.
         
         Raises:
             ValueError:
@@ -358,9 +356,8 @@ class UserStats:
         Render the user's lifetime stats as a Discord-ready summary.
         
         Returns:
-            str:
-                A multi-line message listing the latest game, best game, lifetime score,
-                and category totals.
+            A multi-line message listing the latest game, best game, lifetime score,
+            and category totals.
         '''
         return (
             f"**STATS FOR USER {self.user_name}**\n"
