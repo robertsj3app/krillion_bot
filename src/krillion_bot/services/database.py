@@ -32,6 +32,15 @@ class KrillionResultRecord:
     blanks: int
     result_order: str
     created_at: str
+    games_played: int = 1
+    confidence_adjusted_average: float | None = None
+
+    @property
+    def krelo(self) -> float:
+        """The confidence-adjusted average used by the overall leaderboard."""
+        if self.confidence_adjusted_average is not None:
+            return self.confidence_adjusted_average
+        return (self.score + 5 * 200) / (self.games_played + 5)
 
     @classmethod
     def from_row(cls, row: Any) -> Self:
@@ -455,7 +464,9 @@ class DatabaseHandler:
                     SUM(planktons),
                     SUM(blanks),
                     MAX(result_order),
-                    MAX(created_at)
+                    MAX(created_at),
+                    COUNT(*),
+                    (SUM(score) + 5 * 200) / (COUNT(*) + 5.0)
                 FROM krillionResults
                 WHERE author_id = ? AND guild_id = ?
                 GROUP BY guild_id, author_id, author_name

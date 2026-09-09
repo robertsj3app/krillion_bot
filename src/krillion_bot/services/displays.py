@@ -81,13 +81,19 @@ class Scoreboard:
             top_n = len(self.entries)
         medals = ["🥇", "🥈", "🥉"]
 
-        lines = [
-            f"{medals[i] if i < 3 else f'{i + 1}.'} "
-            f"{element.user} - "
-            f"{getattr(element.result, self.sort_by)} " +
-            (f"({''.join(AnswerCategories.from_char(c).value.as_emoji() for c in element.result.result_order)})" if self.sort_by == 'score' else "")
-            for i, element in enumerate(self.entries[:top_n])
-        ]
+        lines = []
+        for i, element in enumerate(self.entries[:top_n]):
+            metric = getattr(element.result, self.sort_by)
+            formatted_metric = f"{metric:.1f}" if self.sort_by == "krelo" else str(metric)
+            result_emojis = (
+                f"({''.join(AnswerCategories.from_char(c).value.as_emoji() for c in element.result.result_order)})"
+                if self.sort_by == "score"
+                else ""
+            )
+            lines.append(
+                f"{medals[i] if i < 3 else f'{i + 1}.'} "
+                f"{element.user} - {formatted_metric} {result_emojis}"
+            )
 
         return "\n".join(lines)
 
@@ -182,13 +188,15 @@ class DailyScoreboard(Scoreboard):
 class OverallScoreboard(Scoreboard):
     '''
     Extends Scoreboard to indicate that rankings here are global lifetime rankings,
-    and display a second set of rankings using a sub-Scoreboard based on total number
-    of One-in-a-Krillion results.
+    using KrELO, a confidence-adjusted average score, and display a second set of
+    rankings using a sub-Scoreboard based on total number of One-in-a-Krillion results.
     '''
-    
+
+    sort_by: str = field(default='krelo')
+
     def as_message(self: Self, top_n: int | None = None) -> str:
         '''
-        Render both the overall points leaderboard and the lifetime Krillion leaderboards.
+        Render both the overall KrELO leaderboard and the lifetime Krillion leaderboards.
         
         Args:
             top_n (int | None):
@@ -196,7 +204,7 @@ class OverallScoreboard(Scoreboard):
         
         Returns:
             str:
-                A multi-section Discord message covering total points and total Krillions.
+                A multi-section Discord message covering KrELO and total Krillions.
         '''
         winner = self.entries[0] if self.entries else None
         scoreboard_msg = super().as_message(top_n)
@@ -208,8 +216,8 @@ class OverallScoreboard(Scoreboard):
         winner_line_krillions = ""
         if winner:
             winner_line = (
-                f"🎉 **Overall Points Leader: {winner.user}!** 🎉\n"
-                f"🏆 **Score:** {winner.result.score} "
+                f"🎉 **Overall KrELO Leader: {winner.user}!** 🎉\n"
+                f"🏆 **KrELO:** {winner.result.krelo:.1f} "
             )
         else:
             winner_line = winner_line_krillions = "😢 **No results ever logged!**"
@@ -280,6 +288,7 @@ class UserStats:
     total_clevers: int
     total_planktons: int
     total_blanks: int
+    krelo: float
     best_game: KrillionResult
     latest_game: KrillionResult
 
@@ -339,6 +348,7 @@ class UserStats:
             agg_result.clevers, 
             agg_result.planktons, 
             agg_result.blanks, 
+            agg_result.krelo,
             KrillionResult.from_char_list(best_game_result.game_number, best_game_result.score, best_game_result.result_order),# from_database_row(best_game_result),
             KrillionResult.from_char_list(latest_game_result.game_number, latest_game_result.score, latest_game_result.result_order)# from_database_row(latest_game_result)
         )
@@ -355,6 +365,7 @@ class UserStats:
         return (
             f"**STATS FOR USER {self.user_name}**\n"
             "\n"
+            f"**KrELO:** {self.krelo}\n"
             f"**Latest Game:** #{self.latest_game.game_number} ({self.latest_game.score} - {self.latest_game.as_emoji()})\n"
             f"**Best Game:** #{self.best_game.game_number} ({self.best_game.score} - {self.best_game.as_emoji()})\n"
             f"**Lifetime Score:** {self.total_score}\n"

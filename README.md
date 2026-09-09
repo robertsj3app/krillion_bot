@@ -28,7 +28,7 @@ The bot exposes Discord slash commands:
 - `/link` — posts the link to the Krillion daily dive.
 - `/set_krillion_channel` — selects which channel the bot should watch for submissions.
 - `/scoreboard <game_number>` — shows a leaderboard for a specific game. If no number is supplied, it defaults to the current game.
-- `/overall_scoreboard` — shows overall server rankings by total points and total Krillions.
+- `/overall_scoreboard` — shows overall server rankings by KrELO (a confidence-adjusted average score) and total Krillions.
 - `/user_stats <user>` — shows stored lifetime stats for a selected user.
 - `/reset_scores` — clears the current server's score history.
 
