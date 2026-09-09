@@ -365,7 +365,7 @@ class UserStats:
         return (
             f"**STATS FOR USER {self.user_name}**\n"
             "\n"
-            f"**KrELO:** {self.krelo}\n"
+            f"**KrELO:** {self.krelo:.1f}\n"
             f"**Latest Game:** #{self.latest_game.game_number} ({self.latest_game.score} - {self.latest_game.as_emoji()})\n"
             f"**Best Game:** #{self.best_game.game_number} ({self.best_game.score} - {self.best_game.as_emoji()})\n"
             f"**Lifetime Score:** {self.total_score}\n"
