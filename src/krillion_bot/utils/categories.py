@@ -142,7 +142,7 @@ class AnswerCategories(Enum):
             ValueError:
                 If the input is not a valid one-character string.
         '''
-        if not isinstance(char, str) and len(char) == 1:
+        if not (isinstance(char, str) and len(char) == 1):
             raise ValueError("from_char must take a string of length 1 only!")
         return next(c for c in AnswerCategories if c.value.letter_code == char)
 

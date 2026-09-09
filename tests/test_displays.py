@@ -6,6 +6,7 @@ from krillion_bot.services.displays import (
     OverallScoreboard,
     Scoreboard,
     ScoreboardRow,
+    UserStats,
 )
 from krillion_bot.services.database import KrillionResultRecord
 from krillion_bot.services.parser import KrillionResult
@@ -112,6 +113,23 @@ def test_scoreboard_does_not_mutate_original_entries():
     assert [row.user for row in rows] == original_order
 
 
+def test_scoreboard_from_database_result_maps_author_names():
+    records = [make_record(230, "🐟🦑🐟🫧🦑🫧🐟", author_name="FireBjorne")]
+
+    scoreboard = Scoreboard.from_database_result(records)
+
+    assert len(scoreboard.entries) == 1
+    assert scoreboard.entries[0].user == "FireBjorne"
+    assert scoreboard.entries[0].result is records[0]
+
+
+def test_empty_scoreboard_has_no_winner_or_message():
+    scoreboard = Scoreboard([])
+
+    assert scoreboard.winner == ""
+    assert scoreboard.as_message() == ""
+
+
 def test_scoreboard_as_message_contains_expected_rankings():
     scoreboard = Scoreboard(make_scoreboard_rows())
 
@@ -165,6 +183,23 @@ def test_daily_scoreboard_winner_is_highest_scoring_player():
     scoreboard = DailyScoreboard(make_scoreboard_rows())
 
     assert scoreboard.winner == "FireBjorne"
+
+
+def test_empty_daily_scoreboard_uses_current_game_and_no_results_message():
+    scoreboard = DailyScoreboard([])
+
+    assert scoreboard.game_number == current_game_number()
+    assert "😢 **No results yet today!**" in scoreboard.as_message()
+
+
+def test_daily_scoreboard_message_can_show_current_leader_before_final_results():
+    scoreboard = DailyScoreboard(make_scoreboard_rows())
+
+    message = scoreboard.as_message(final_result=False)
+
+    assert "Leaderboard is not set in stone yet!" in message
+    assert "Current Leader: FireBjorne!" in message
+    assert "Scores close at" in message
 
 
 def test_daily_scoreboard_rejects_results_from_different_games():
@@ -248,6 +283,72 @@ def test_overall_scoreboard_uses_krelo_instead_of_total_score():
     assert "Strong Player - 180.0" in message
     assert "Frequent Player - 145.0" in message
     assert "Overall Points" not in message
+
+
+def test_empty_overall_scoreboard_reports_no_results():
+    message = OverallScoreboard([]).as_message()
+
+    assert "😢 **No results ever logged!**" in message
+
+
+def test_user_stats_from_database_result_builds_summary():
+    aggregate = make_record(650, "🌟🌟⬛🦑🏮⬛🐟", author_name="FireBjorne")
+    aggregate = replace(
+        aggregate,
+        games_played=2,
+        confidence_adjusted_average=175.0,
+    )
+    best = make_record(375, "🌟🌟⬛🦑🏮⬛🐟", game_number=47, author_name="FireBjorne")
+    latest = make_record(275, "🌟⬛⬛🦑🏮⬛🐟", game_number=48, author_name="FireBjorne")
+
+    stats = UserStats.from_database_result(aggregate, best, latest)
+
+    assert stats.user_name == "FireBjorne"
+    assert stats.total_score == 650
+    assert stats.krelo == 175.0
+    assert stats.best_game.game_number == 47
+    assert stats.latest_game.game_number == 48
+    assert stats.EMOJI_MAPPING
+
+
+def test_user_stats_rejects_results_for_different_users():
+    aggregate = make_record(375, "🌟🌟⬛🦑🏮⬛🐟", author_name="FireBjorne")
+    best = make_record(375, "🌟🌟⬛🦑🏮⬛🐟", author_name="Paradigm")
+    latest = make_record(375, "🌟🌟⬛🦑🏮⬛🐟", author_name="FireBjorne")
+
+    with pytest.raises(
+        ValueError,
+        match="Cannot build user stats from results for different users",
+    ):
+        UserStats.from_database_result(aggregate, best, latest)
+
+
+def test_user_stats_message_contains_lifetime_and_category_totals():
+    stats = UserStats(
+        "FireBjorne",
+        650,
+        4,
+        2,
+        1,
+        1,
+        0,
+        0,
+        2,
+        175.0,
+        make_result(375, "🌟🌟⬛🦑🏮⬛🐟", game_number=47),
+        make_result(275, "🌟⬛⬛🦑🏮⬛🐟", game_number=48),
+    )
+
+    message = stats.as_message()
+
+    assert "**STATS FOR USER FireBjorne**" in message
+    assert "**KrELO:** 175.0" in message
+    assert "**Latest Game:** #48" in message
+    assert "**Best Game:** #47" in message
+    assert "**Lifetime Score:** 650" in message
+    assert "🌟: 4" in message
+    assert "⬛: 2" in message
+
 
 @pytest.mark.parametrize(
     ("score", "answers"),
