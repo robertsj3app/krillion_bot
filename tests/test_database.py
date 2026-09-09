@@ -249,6 +249,10 @@ async def test_aggregate_stats(db: DatabaseHandler):
     assert stats[10] == first.clevers + second.clevers
     assert stats[11] == first.planktons + second.planktons
     assert stats[12] == first.empties + second.empties
+    assert stats.games_played == 2
+    assert stats.krelo == pytest.approx(
+        (first.score + second.score + 5 * 200) / 7
+    )
     # stats[13] is latest result, not needed here probably
     # stats[14] is latest submission timestamp, again not relevant
 
@@ -258,6 +262,25 @@ async def test_aggregate_stats_for_unknown_user_returns_none(db: DatabaseHandler
     stats = await db.aggregate_stats(999999)
 
     assert stats == None
+
+
+@pytest.mark.asyncio
+async def test_overall_stats_calculates_confidence_adjusted_average(db: DatabaseHandler):
+    await db.log_result(
+        4652, "FireBjorne", make_result(375, "🌟🌟⬛🦑🏮⬛🐟"), force=True
+    )
+    await db.log_result(
+        4652,
+        "FireBjorne",
+        make_result(275, "🌟⬛⬛🦑🏮⬛🐟", game_number=47),
+        force=True,
+    )
+
+    stats = await db.aggregate_stats(4652)
+
+    assert stats is not None
+    assert stats.games_played == 2
+    assert stats.krelo == pytest.approx((650 + 5 * 200) / 7)
 
 
 @pytest.mark.asyncio

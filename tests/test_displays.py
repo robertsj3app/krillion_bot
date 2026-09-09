@@ -1,4 +1,5 @@
 import pytest
+from dataclasses import replace
 
 from krillion_bot.services.displays import (
     DailyScoreboard,
@@ -226,6 +227,27 @@ def test_daily_scoreboard_message_respects_top_n():
     assert "Obscur" not in message
     assert "The Bookkeeper of Domino" not in message
     assert "The Owl Baron" not in message
+
+
+def test_overall_scoreboard_uses_krelo_instead_of_total_score():
+    frequent_player = replace(
+        make_record(800, "🌟🌟⬛🦑🏮⬛🐟", author_name="Frequent Player"),
+        games_played=8,
+        confidence_adjusted_average=145.0,
+    )
+    strong_player = replace(
+        make_record(200, "🌟⬛⬛🦑🏮⬛🐟", author_name="Strong Player"),
+        confidence_adjusted_average=180.0,
+    )
+
+    message = OverallScoreboard(
+        [ScoreboardRow("Frequent Player", frequent_player), ScoreboardRow("Strong Player", strong_player)]
+    ).as_message()
+
+    assert "Overall KrELO Leader: Strong Player" in message
+    assert "Strong Player - 180.0" in message
+    assert "Frequent Player - 145.0" in message
+    assert "Overall Points" not in message
 
 @pytest.mark.parametrize(
     ("score", "answers"),

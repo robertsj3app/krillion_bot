@@ -104,10 +104,10 @@ def register_commands(bot: commands.Bot):
             s = DailyScoreboard.from_database_result(data)
             await interaction.response.send_message(s.as_message(final_result=True if game_number < current_game_number() else False))
 
-    @bot.tree.command(name="overall_scoreboard", description="Show the overall rankings for this server, both for total points and number of krillions.")
+    @bot.tree.command(name="overall_scoreboard", description="Show the overall rankings for this server by KrELO and number of krillions.")
     async def overall_scoreboard(interaction: discord.Interaction):
         '''
-        Show the lifetime ranking for the server across points and Krillion totals.
+        Show the lifetime ranking for the server across KrELO and Krillion totals.
 
         Args:
             interaction (discord.Interaction):
