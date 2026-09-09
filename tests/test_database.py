@@ -1,6 +1,10 @@
 import pytest
 
-from krillion_bot.services.database import DatabaseHandler
+from krillion_bot.services.database import (
+    DatabaseHandler,
+    DoubleSubmissionException,
+    KrillionResultRecord,
+)
 from krillion_bot.services.parser import KrillionResult
 from krillion_bot.utils import current_game_number
 import aiosqlite
@@ -80,6 +84,23 @@ async def test_user_cannot_submit_twice_on_the_same_day(db: DatabaseHandler):
         match="Cannot submit a second Krillion result for user FireBjorne",
     ):
         await db.log_result(4652, "FireBjorne", second_result)
+
+
+@pytest.mark.asyncio
+async def test_logging_historical_result_requires_force(db: DatabaseHandler):
+    result = make_result(
+        375,
+        "🌟🌟⬛🦑🏮⬛🐟",
+        game_number=current_game_number() - 1,
+    )
+
+    with pytest.raises(
+        DoubleSubmissionException,
+        match="Cannot log a result for a game other than today's current",
+    ):
+        await db.log_result(4652, "FireBjorne", result)
+
+    assert await db.scoreboard() == []
 
 
 @pytest.mark.asyncio
@@ -186,6 +207,49 @@ async def test_scoreboard_count_limits_number_of_results(db: DatabaseHandler):
 
 
 @pytest.mark.asyncio
+async def test_scoreboard_filters_by_daily_and_specific_game(db: DatabaseHandler):
+    today = make_result(
+        375,
+        "🌟🌟⬛🦑🏮⬛🐟",
+        game_number=current_game_number(),
+    )
+    historical = make_result(
+        275,
+        "🌟⬛⬛🦑🏮⬛🐟",
+        game_number=current_game_number() - 1,
+    )
+
+    await db.log_result(4652, "FireBjorne", today)
+    await db.log_result(4651, "Paradigm", historical, force=True)
+
+    daily = await db.scoreboard(style="daily")
+    specific_game = await db.scoreboard(style=current_game_number() - 1)
+
+    assert [record.author_name for record in daily] == ["FireBjorne"]
+    assert [record.author_name for record in specific_game] == ["Paradigm"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("style", "count", "message"),
+    [
+        ("weekly", None, "style must be"),
+        (-1, None, "game number must be"),
+        ("all_time", 0, "count must be"),
+        ("all_time", "2", "count must be"),
+    ],
+)
+async def test_scoreboard_rejects_invalid_arguments(
+    db: DatabaseHandler,
+    style,
+    count,
+    message,
+):
+    with pytest.raises(ValueError, match=message):
+        await db.scoreboard(style=style, count=count)
+
+
+@pytest.mark.asyncio
 async def test_best_game_returns_highest_scoring_game(db: DatabaseHandler):
     worse = make_result(
         275,
@@ -215,6 +279,32 @@ async def test_best_game_returns_highest_scoring_game(db: DatabaseHandler):
 @pytest.mark.asyncio
 async def test_best_game_returns_none_for_unknown_user(db: DatabaseHandler):
     assert await db.best_game(999999) is None
+
+
+@pytest.mark.asyncio
+async def test_latest_game_returns_most_recent_game(db: DatabaseHandler):
+    await db.log_result(
+        4652,
+        "FireBjorne",
+        make_result(275, "🌟⬛⬛🦑🏮⬛🐟", game_number=46),
+        force=True,
+    )
+    await db.log_result(
+        4652,
+        "FireBjorne",
+        make_result(375, "🌟🌟⬛🦑🏮⬛🐟", game_number=47),
+        force=True,
+    )
+
+    latest = await db.latest_game(4652)
+
+    assert latest is not None
+    assert latest.game_number == 47
+
+
+@pytest.mark.asyncio
+async def test_latest_game_returns_none_for_unknown_user(db: DatabaseHandler):
+    assert await db.latest_game(999999) is None
 
 
 @pytest.mark.asyncio
@@ -262,6 +352,31 @@ async def test_aggregate_stats_for_unknown_user_returns_none(db: DatabaseHandler
     stats = await db.aggregate_stats(999999)
 
     assert stats == None
+
+
+def test_krillion_result_record_default_krelo_and_indexing():
+    record = KrillionResultRecord(
+        1,
+        123,
+        4652,
+        "FireBjorne",
+        46,
+        375,
+        2,
+        1,
+        1,
+        1,
+        0,
+        0,
+        2,
+        "OONRDNS",
+        "2026-08-30 12:00:00",
+        games_played=1,
+    )
+
+    assert record.krelo == pytest.approx((375 + 5 * 200) / 6)
+    assert record[3] == "FireBjorne"
+    assert tuple(record)[5] == 375
 
 
 @pytest.mark.asyncio
