@@ -32,6 +32,41 @@ The bot exposes Discord slash commands:
 - `/user_stats <user>` — shows stored lifetime stats for a selected user.
 - `/reset_scores` — clears the current server's score history.
 
+## Manual notifications
+
+Send a one-off notification to every configured Krillion channel across the bot's
+guilds, without stopping the running bot service:
+
+```bash
+python -m krillion_bot.blast --message "Maintenance starts at 2:00 AM Eastern."
+```
+
+The command uses the same `DISCORD_TOKEN` and `DB_FILE_LOCATION` environment
+variables as the bot (and loads `.env` when present). It sends through Discord's
+HTTP API without opening another gateway connection. It exits unsuccessfully if
+any configured channel cannot be reached or sent to.
+
+For common announcements, send a predefined message by its key:
+
+```bash
+python -m krillion_bot.blast --canned maintenance_scheduled
+```
+
+Post a changelog containing the commit subjects after a given commit and through
+the current `HEAD`:
+
+```bash
+python -m krillion_bot.blast --canned changelog --since <commit-hash>
+```
+
+The base commit is excluded, and commits are listed oldest first. The changelog
+is rejected if it exceeds Discord's 2000-character message limit.
+
+Edit [`src/krillion_bot/data/canned_blasts.json`](./src/krillion_bot/data/canned_blasts.json)
+to add or change messages. The JSON object maps each command-line key to its
+message text. `changelog` is the heading for the generated changelog. Use either
+`--message` or `--canned`, but not both.
+
 ## Setup
 
 1. Create a virtual environment and install the package:

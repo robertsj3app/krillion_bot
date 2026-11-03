@@ -1,0 +1,6 @@
+{
+  "maintenance_scheduled": "The bot will be temporarily unavailable while maintenance is performed. We'll post an update when service is restored.",
+  "maintenance_complete": "Maintenance is complete, and the bot is back online. Thank you for your patience!",
+  "service_disruption": "The bot is currently experiencing a service disruption. We're working to restore normal operation and will share an update when we have more information.",
+  "changelog": "Here's what's new:"
+}

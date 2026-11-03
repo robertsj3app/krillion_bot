@@ -28,3 +28,6 @@ dev = [
 [tool.setuptools.packages.find]
 where = ["src"]  # Specifies that code is inside a 'src' directory
 include = ["krillion_bot*"]
+
+[tool.setuptools.package-data]
+krillion_bot = ["data/*.json"]

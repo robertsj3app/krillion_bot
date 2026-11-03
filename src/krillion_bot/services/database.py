@@ -171,6 +171,17 @@ class DatabaseHandler:
                 return None
             return int(result[0])
 
+    @classmethod
+    async def get_configured_krillion_channels(cls) -> list[int]:
+        '''Get all configured Krillion channel IDs across guilds.'''
+        async with aiosqlite.connect(cls.db_file_location) as db:
+            cursor = await db.execute(
+                "SELECT krillion_channel_id FROM guildSettings "
+                "WHERE krillion_channel_id IS NOT NULL"
+            )
+            results = await cursor.fetchall()
+        return [int(result[0]) for result in results]
+
     async def wipe(self: Self) -> None:
         '''
         Clear all krillionResults for this handler's guild.
