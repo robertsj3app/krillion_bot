@@ -1,33 +1,59 @@
 import functools
 import os
+from datetime import datetime
 
 import discord
 from discord.ext import commands, tasks
 
 from krillion_bot.services.database import DatabaseHandler, DoubleSubmissionException
-from krillion_bot.services.displays import DailyScoreboard
+from krillion_bot.services.displays import DailyScoreboard, OverallScoreboard
 from krillion_bot.services.parser import KrillionResult
 from krillion_bot.utils import current_game_number
-from krillion_bot.utils.time import MIDNIGHT_EASTERN
+from krillion_bot.utils.time import EASTERN_TIMEZONE, MIDNIGHT_EASTERN
 
 
-async def midnight_show_scoreboard(bot: commands.Bot):
+async def midnight_show_scoreboard(
+    bot: commands.Bot,
+    now: datetime | None = None,
+):
     '''
     Publish the complete daily scoreboard when the Krillion reset window arrives.
 
     Args:
         bot (commands.Bot):
             The bot whose guilds should receive the scoreboard.
+        now (datetime | None):
+            Optional reference time, interpreted in Eastern time when naive.
     '''
+    if now is None:
+        now = datetime.now(EASTERN_TIMEZONE)
+    elif now.tzinfo is None:
+        now = now.replace(tzinfo=EASTERN_TIMEZONE)
+    else:
+        now = now.astimezone(EASTERN_TIMEZONE)
+
     for guild in bot.guilds:
         handler = DatabaseHandler(guild.id)
         krillion_channel_id = await handler.get_krillion_channel()
         if krillion_channel_id:
-            data = await handler.scoreboard(current_game_number() - 1)
+            data = await handler.scoreboard(current_game_number(now) - 1)
             scoreboard = DailyScoreboard.from_database_result(data)
             krillion_channel = bot.get_channel(krillion_channel_id)
             if isinstance(krillion_channel, discord.TextChannel):
                 await krillion_channel.send(scoreboard.as_message(final_result=True))
+                if now.weekday() == 5:
+                    aggregate_results = [
+                        result
+                        for result in [
+                            await handler.aggregate_stats(member.id)
+                            for member in guild.members
+                        ]
+                        if result is not None
+                    ]
+                    overall_scoreboard = OverallScoreboard.from_database_result(
+                        aggregate_results
+                    )
+                    await krillion_channel.send(overall_scoreboard.as_message())
                 await krillion_channel.send(
                     "🦐 [A new daily dive is available!](https://krillion.io/) 🦐"
                 )

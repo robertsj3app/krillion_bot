@@ -19,6 +19,7 @@ The project is designed around a simple flow:
 - Prevents a user from submitting more than one result for the same daily game.
 - Tracks per-server scores across days.
 - Publishes a leaderboard at midnight Eastern time in the configured channel, adjusting for daylight saving time.
+- Adds the overall rankings after the daily scoreboard on Saturday mornings.
 - Shows lifetime player stats, best game, latest game, and total category counts.
 
 ## Commands
