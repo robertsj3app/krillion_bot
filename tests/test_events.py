@@ -213,11 +213,8 @@ async def test_on_guild_remove_removes_guild(monkeypatch):
     handler.remove_guild.assert_awaited_once_with()
 
 
-def test_register_events_registers_all_handlers(monkeypatch):
+def test_register_events_registers_all_handlers():
     bot = Mock()
-    loop = Mock()
-    loop_decorator = Mock(return_value=loop)
-    monkeypatch.setattr(events.tasks, "loop", Mock(return_value=loop_decorator))
 
     events.register_events(bot)
 
@@ -227,5 +224,8 @@ def test_register_events_registers_all_handlers(monkeypatch):
         "on_guild_join",
         "on_guild_remove",
     ]
-    assert isinstance(bot.add_listener.call_args_list[0].args[0], partial)
+    on_ready_listener = bot.add_listener.call_args_list[0].args[0]
+    scoreboard_loop = on_ready_listener.args[1]
+    assert isinstance(scoreboard_loop, events.tasks.Loop)
+    assert scoreboard_loop.coro.__name__ == "show_scoreboard"
     assert bot.add_listener.call_args_list[1].kwargs["name"] == "on_message"

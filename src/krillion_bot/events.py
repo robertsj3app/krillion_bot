@@ -146,9 +146,10 @@ def register_events(bot: commands.Bot):
         bot (commands.Bot):
             The active Discord bot instance receiving the event hooks.
     '''
-    scoreboard_loop = tasks.loop(time=MIDNIGHT_EASTERN)(
-        functools.partial(midnight_show_scoreboard, bot)
-    )
+    async def show_scoreboard():
+        await midnight_show_scoreboard(bot)
+
+    scoreboard_loop = tasks.loop(time=MIDNIGHT_EASTERN)(show_scoreboard)
     bot.add_listener(
         functools.partial(on_ready, bot, scoreboard_loop),
         name="on_ready",
