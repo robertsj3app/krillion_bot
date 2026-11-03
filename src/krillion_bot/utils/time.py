@@ -1,12 +1,13 @@
-from datetime import datetime, timedelta, timezone
-import datetime as dt
+from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
-UTC_MINUS_4 = timezone(timedelta(hours=-4))
-MIDNIGHT_EST = dt.time(hour=0, minute=0, second=0, tzinfo=UTC_MINUS_4)
+EASTERN_TIMEZONE = ZoneInfo("America/New_York")
+MIDNIGHT_EASTERN = time(hour=0, minute=0, second=0, tzinfo=EASTERN_TIMEZONE)
 
-def get_next_utc_4_boundary_from(dt: datetime):
+
+def get_next_eastern_boundary_from(dt: datetime):
     '''
-    Compute the next midnight boundary in UTC-4 time.
+    Compute the next midnight boundary in the Eastern time zone.
     
     Args:
         dt (datetime):
@@ -14,13 +15,15 @@ def get_next_utc_4_boundary_from(dt: datetime):
     
     Returns:
         datetime:
-            The next midnight timestamp in the server's UTC-4 timezone.
+            The next midnight timestamp in the Eastern time zone.
     '''
-    next_boundary = (dt.date() + timedelta(days=1))
-    next_boundary_dt = datetime.combine(
-        next_boundary, datetime.min.time(), tzinfo=UTC_MINUS_4
+    eastern_dt = (
+        dt.replace(tzinfo=EASTERN_TIMEZONE)
+        if dt.tzinfo is None
+        else dt.astimezone(EASTERN_TIMEZONE)
     )
-    return next_boundary_dt
+    next_boundary = eastern_dt.date() + timedelta(days=1)
+    return datetime.combine(next_boundary, time.min, tzinfo=EASTERN_TIMEZONE)
 
 def format_datetime_for_discord(dt: datetime):
     '''
@@ -35,4 +38,3 @@ def format_datetime_for_discord(dt: datetime):
             A Discord timestamp snippet such as "\\<t:1700000000:t\\>".
     '''
     return f"<t:{int(dt.timestamp())}:t>"
-

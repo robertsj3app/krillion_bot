@@ -1,6 +1,10 @@
 from dataclasses import dataclass, field
 from krillion_bot.services.parser import KrillionResult
-from krillion_bot.utils.time import get_next_utc_4_boundary_from, format_datetime_for_discord
+from krillion_bot.utils.time import (
+    EASTERN_TIMEZONE,
+    format_datetime_for_discord,
+    get_next_eastern_boundary_from,
+)
 from krillion_bot.utils import current_game_number, Emojis, AnswerCategories
 from krillion_bot.services.database import KrillionResultRecord
 from typing import Self, Optional
@@ -166,7 +170,7 @@ class DailyScoreboard(Scoreboard):
             )
         elif winner and not final_result:
             winner_line = (
-                f"**Leaderboard is not set in stone yet! Scores close at {format_datetime_for_discord(get_next_utc_4_boundary_from(datetime.now()))}!**\n"
+                f"**Leaderboard is not set in stone yet! Scores close at {format_datetime_for_discord(get_next_eastern_boundary_from(datetime.now(EASTERN_TIMEZONE)))}!**\n"
                 f"🙌 **Current Leader: {winner.user}!** 🙌\n"
                 f"🏆 **Score:** {winner.result.score} "
             )

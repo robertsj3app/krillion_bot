@@ -13,7 +13,8 @@ license = {text = "MIT"}
 dependencies = [
     'discord.py',
     'aiosqlite',
-    'python-dotenv'
+    'python-dotenv',
+    'tzdata'
 ]
 
 [project.optional-dependencies]

@@ -8,7 +8,7 @@ from krillion_bot.services.database import DatabaseHandler, DoubleSubmissionExce
 from krillion_bot.services.displays import DailyScoreboard
 from krillion_bot.services.parser import KrillionResult
 from krillion_bot.utils import current_game_number
-from krillion_bot.utils.time import MIDNIGHT_EST
+from krillion_bot.utils.time import MIDNIGHT_EASTERN
 
 
 async def midnight_show_scoreboard(bot: commands.Bot):
@@ -120,7 +120,7 @@ def register_events(bot: commands.Bot):
         bot (commands.Bot):
             The active Discord bot instance receiving the event hooks.
     '''
-    scoreboard_loop = tasks.loop(time=MIDNIGHT_EST)(
+    scoreboard_loop = tasks.loop(time=MIDNIGHT_EASTERN)(
         functools.partial(midnight_show_scoreboard, bot)
     )
     bot.add_listener(
