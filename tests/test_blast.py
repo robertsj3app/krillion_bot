@@ -51,6 +51,41 @@ def test_build_changelog_includes_commit_subjects_after_base_in_order(tmp_path):
     assert "Base commit" not in changelog
 
 
+def test_build_changelog_excludes_merge_commits(tmp_path):
+    def git(*args):
+        return subprocess.run(
+            ["git", *args],
+            cwd=tmp_path,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+    git("init", "-q")
+    git("config", "user.email", "test@example.com")
+    git("config", "user.name", "Test User")
+    (tmp_path / "log.txt").write_text("base", encoding="utf-8")
+    git("add", "log.txt")
+    git("commit", "-m", "Base commit")
+    base = git("rev-parse", "HEAD")
+    main_branch = git("branch", "--show-current")
+
+    (tmp_path / "log.txt").write_text("main", encoding="utf-8")
+    git("commit", "-am", "Main change")
+    git("checkout", "-b", "feature")
+    (tmp_path / "feature.txt").write_text("feature", encoding="utf-8")
+    git("add", "feature.txt")
+    git("commit", "-m", "Feature change")
+    git("checkout", main_branch)
+    git("merge", "--no-ff", "feature", "-m", "Merge feature branch")
+
+    changelog = build_changelog(base, tmp_path)
+
+    assert "Main change" in changelog
+    assert "Feature change" in changelog
+    assert "Merge feature branch" not in changelog
+
+
 def test_build_changelog_rejects_an_invalid_commit(tmp_path):
     with pytest.raises(ValueError, match="Unable to read git history"):
         build_changelog("not-a-commit", tmp_path)

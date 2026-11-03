@@ -53,7 +53,14 @@ def build_changelog(since: str, repository: Path | None = None) -> str:
             text=True,
         )
         result = subprocess.run(
-            ["git", "log", "--reverse", "--format=%s", f"{revision}..HEAD"],
+            [
+                "git",
+                "log",
+                "--reverse",
+                "--no-merges",
+                "--format=%s",
+                f"{revision}..HEAD",
+            ],
             cwd=repository,
             check=True,
             capture_output=True,
