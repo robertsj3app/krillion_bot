@@ -171,6 +171,17 @@ class DatabaseHandler:
                 return None
             return int(result[0])
 
+    @classmethod
+    async def get_configured_krillion_channels(cls) -> list[int]:
+        '''Get all configured Krillion channel IDs across guilds.'''
+        async with aiosqlite.connect(cls.db_file_location) as db:
+            cursor = await db.execute(
+                "SELECT krillion_channel_id FROM guildSettings "
+                "WHERE krillion_channel_id IS NOT NULL"
+            )
+            results = await cursor.fetchall()
+        return [int(result[0]) for result in results]
+
     async def wipe(self: Self) -> None:
         '''
         Clear all krillionResults for this handler's guild.
@@ -317,7 +328,7 @@ class DatabaseHandler:
         count: Optional[int] = None,
     ) -> list[KrillionResultRecord]:
         '''
-        Returns the data needed to populate a scoreboard for this handler's server as an Iterable of sqlite3 Rows.
+        Returns the data needed to populate a scoreboard for this handler's server as an Iterable of KrillionResultRecords.
         
         Args:
             style (Literal["daily", "all_time"] | int):
@@ -329,7 +340,7 @@ class DatabaseHandler:
                 If provided, limits the number of Rows returned. Useful for "Top N" scoreboards.
                 
         Returns:
-            Iterable of sqlite3 Rows with columns matching the schema of krillionResults
+            Iterable of KrillionResultRecords with columns matching the schema of krillionResults
         '''
         if not isinstance(style, (str, int)) or (
             isinstance(style, str) and style not in {"daily", "all_time"}
@@ -391,7 +402,7 @@ class DatabaseHandler:
                 The Discord ID of the user to query games for.
         
         Returns:
-            sqlite3 Row of the user's best game, or None if no results are found.
+            KrillionResultRecord of the user's best game, or None if no results are found.
         '''
         async with aiosqlite.connect(self.db_file_location) as db:
             cursor = await db.execute(
@@ -417,7 +428,7 @@ class DatabaseHandler:
                     The Discord ID of the user to query games for.
             
             Returns:
-                sqlite3 Row of the user's most recent game, or None if no results are found.
+                KrillionResultRecord of the user's most recent game, or None if no results are found.
             '''
             async with aiosqlite.connect(self.db_file_location) as db:
                 cursor = await db.execute(
@@ -444,7 +455,7 @@ class DatabaseHandler:
                 The Discord ID of the user to return lifetime stats for.
         
         Returns:
-            sqlite3 Row of the aggregate, or None if no such user exists.
+            KrillionResultRecord of the aggregate, or None if no such user exists.
         '''
         async with aiosqlite.connect(self.db_file_location) as db:
             cursor = await db.execute(

@@ -1,6 +1,10 @@
 from dataclasses import dataclass, field
 from krillion_bot.services.parser import KrillionResult
-from krillion_bot.utils.time import get_next_utc_4_boundary_from, format_datetime_for_discord
+from krillion_bot.utils.time import (
+    EASTERN_TIMEZONE,
+    format_datetime_for_discord,
+    get_next_eastern_boundary_from,
+)
 from krillion_bot.utils import current_game_number, Emojis, AnswerCategories
 from krillion_bot.services.database import KrillionResultRecord
 from typing import Self, Optional
@@ -74,7 +78,7 @@ class Scoreboard:
             top_n (Optional[int]):
                 If set, limit the scoreboard to the top N scorers.
                 
-        Returns
+        Returns:
             A pretty-printed string with emojis and visuals to display in Discord
         '''
         if top_n is None:
@@ -152,7 +156,7 @@ class DailyScoreboard(Scoreboard):
                 otherwise declare the top player as the leader and indicate
                 that scoring is still open.
                 
-        Returns
+        Returns:
             A pretty-printed string with emojis and visuals to display in Discord
         '''
         winner = self.entries[0] if self.entries else None
@@ -166,7 +170,7 @@ class DailyScoreboard(Scoreboard):
             )
         elif winner and not final_result:
             winner_line = (
-                f"**Leaderboard is not set in stone yet! Scores close at {format_datetime_for_discord(get_next_utc_4_boundary_from(datetime.now()))}!**\n"
+                f"**Leaderboard is not set in stone yet! Scores close at {format_datetime_for_discord(get_next_eastern_boundary_from(datetime.now(EASTERN_TIMEZONE)))}!**\n"
                 f"🙌 **Current Leader: {winner.user}!** 🙌\n"
                 f"🏆 **Score:** {winner.result.score} "
             )
@@ -203,8 +207,7 @@ class OverallScoreboard(Scoreboard):
                 Maximum number of entries to include in each leaderboard segment.
         
         Returns:
-            str:
-                A multi-section Discord message covering KrELO and total Krillions.
+            A multi-section Discord message covering KrELO and total Krillions.
         '''
         winner = self.entries[0] if self.entries else None
         scoreboard_msg = super().as_message(top_n)
@@ -323,8 +326,7 @@ class UserStats:
                 The user's most recent game row from the database.
         
         Returns:
-            UserStats:
-                The lifetime summary for the selected user.
+            The lifetime summary for the selected user.
         
         Raises:
             ValueError:
@@ -358,9 +360,8 @@ class UserStats:
         Render the user's lifetime stats as a Discord-ready summary.
         
         Returns:
-            str:
-                A multi-line message listing the latest game, best game, lifetime score,
-                and category totals.
+            A multi-line message listing the latest game, best game, lifetime score,
+            and category totals.
         '''
         return (
             f"**STATS FOR USER {self.user_name}**\n"

@@ -1,3 +1,5 @@
+"""Shared timing, game-state, emoji, and answer-category utilities."""
+
 from . import time
 from .game_status import current_game_number
 from .emojis import Emojis

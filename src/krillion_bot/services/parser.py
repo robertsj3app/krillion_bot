@@ -96,8 +96,7 @@ class KrillionResult:
         Return the original answer sequence as a contiguous emoji string.
         
         Returns:
-            str:
-                The emoji representation of all answer categories in order.
+            The emoji representation of all answer categories in order.
         '''
         return ''.join(a.as_emoji() for a in self.answers)
 
@@ -107,8 +106,7 @@ class KrillionResult:
         Check whether the parsed answer values add up to the declared score.
         
         Returns:
-            bool:
-                True when the total score matches the answer-value sum, False otherwise.
+            True when the total score matches the answer-value sum, False otherwise.
         '''
         return sum(a.score for a in self.answers) == self.score
 
@@ -122,8 +120,7 @@ class KrillionResult:
                 The pasted text copied directly from the Krillion result modal.
         
         Returns:
-            KrillionResult:
-                A result object built from the game number, score, and answer sequence.
+            A result object built from the game number, score, and answer sequence.
         
         Raises:
             ValueError:
@@ -151,7 +148,6 @@ class KrillionResult:
                 The character list to reconstruct
         
         Returns:
-            KrillionResult:
-                A result object rebuilt from the serialized answer text.
+            A result object rebuilt from the serialized answer text.
         '''
         return KrillionResult(game_number, score, [AnswerCategories.from_char(c).value for c in chars])
